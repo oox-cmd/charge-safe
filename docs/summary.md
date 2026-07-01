@@ -1,48 +1,27 @@
-# ChargeSafe 社区充电安全运维平台 — 项目总结
+# ChargeSafe 社区充电安全运维平台 — 项目技术文档
 
 > 《面向社区场景的电动自行车充电停放与安全运维管理系统设计与实现》
+> 当前版本：v0.2.0
 
-## 一、项目背景与目标
+## 一、技术架构
 
-### 1.1 项目背景
-
-近年来，电动自行车因其经济便捷的特点，已成为城市居民短途出行的重要交通工具。然而，电动自行车充电安全问题日益突出，因违规充电、飞线充电引发的火灾事故频发，严重威胁居民生命财产安全。
-
-为规范电动自行车充电管理，国家和地方政府相继出台多项政策法规，大量社区开始建设集中充电车棚。然而，现有的充电设施管理面临诸多挑战：
-
-- **资源管理粗放**：充电端口数量、状态、使用情况缺乏有效监控。
-- **预约机制缺失**：居民到达车棚后发现无空闲端口。
-- **故障响应滞后**：设备故障后缺乏及时的报修和维修流程。
-- **安全隐患突出**：充电设施缺乏定期巡检机制。
-
-### 1.2 项目目标
-
-本系统面向小区、园区、学校宿舍区、写字楼等场景，设计并实现一个电动自行车充电停放与安全运维管理系统，围绕充电设施资源管理、居民预约充电、设备故障报修、维修工单处理、安全巡检、隐患整改、消息通知和统计分析等业务进行设计。
-
-核心目标：
-1. 实现充电设施资源的可视化管理
-2. 为居民提供便捷的预约充电服务
-3. 建立设备故障的闭环处理机制
-4. 规范安全巡检和隐患整改流程
-5. 提供多维度的数据统计分析
-
-## 二、技术架构
-
-### 2.1 技术选型
+### 1.1 技术选型
 
 | 层级 | 技术 | 版本 | 说明 |
 |------|------|------|------|
 | 后端框架 | Spring Boot | 3.2.5 | 主框架 |
 | ORM | MyBatis-Plus | 3.5.5 | 数据库操作 |
 | 数据库 | MySQL | 8.x | 数据存储 |
+| 数据库迁移 | Flyway | - | 版本化数据库变更管理 |
 | 认证 | JWT | 0.12.5 | Token 认证 |
+| AOP | Spring AOP | - | 操作日志切面 |
 | 前端框架 | Vue | 3.x | 管理端 |
 | UI 组件库 | Element Plus | - | 管理端界面 |
 | 图表 | ECharts | - | 数据可视化 |
 | 构建工具 | Vite | - | 前端构建 |
 | 小程序 | uni-app | - | 居民端 |
 
-### 2.2 系统架构
+### 1.2 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -58,7 +37,7 @@
 ┌────────────────────────────────┴────────────────────────────┐
 │                      后端服务层                              │
 ├─────────────────────────────────────────────────────────────┤
-│   Spring Boot 3.2.5 + JWT + MyBatis-Plus                   │
+│   Spring Boot 3.2.5 + JWT + MyBatis-Plus + Flyway          │
 │                                                             │
 │   ┌──────────┬──────────┬──────────┬──────────┐            │
 │   │  认证    │  社区    │  充电    │  报修    │            │
@@ -66,197 +45,328 @@
 │   ├──────────┼──────────┼──────────┼──────────┤            │
 │   │  巡检    │  消息    │  统计    │  设备    │            │
 │   │  隐患    │  通知    │  分析    │  模拟    │            │
+│   ├──────────┼──────────┼──────────┼──────────┤            │
+│   │  操作日志 (AOP)                           │            │
 │   └──────────┴──────────┴──────────┴──────────┘            │
 │                                                             │
-│   Port: 8080                                                │
+│   Port: 8080 (local/dev) | 8081 (prod)                     │
 └─────────────────────────────────┬───────────────────────────┘
                                   │
 ┌─────────────────────────────────┴───────────────────────────┐
 │                      数据存储层                              │
 ├─────────────────────────────────────────────────────────────┤
 │   MySQL 8.x  |  InnoDB  |  utf8mb4                         │
-│   数据库名: charge_safe                                      │
+│   Flyway 迁移文件管理数据库结构变更                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 三、功能模块
+### 1.3 多环境配置
 
-### 3.1 模块总览
+| 环境 | Profile | 用途 | 端口 | 数据库 |
+|------|---------|------|------|--------|
+| 本地开发库 | `local` | 个人开发调试 | 8080 | `127.0.0.1:3306/charge_safe_dev` |
+| 云端共享开发库 | `dev` | 多人联调测试 | 8080 | `127.0.0.1:13306/charge_safe_dev` |
+| 云端正式演示库 | `prod` | 正式部署演示 | 8081 | `127.0.0.1:3306/charge_safe` |
 
-| 模块 | 说明 | 主要接口数 |
-|------|------|-----------|
-| 用户角色管理 | 用户登录、角色分配、权限控制 | 2 |
-| 社区资源管理 | 社区、车棚、设备、端口 CRUD | 16 |
-| 预约充电 | 预约、取消、扫码充电、结束充电、订单 | 8 |
-| 报修工单 | 报修、派单、接单、维修、验收、关闭 | 12 |
-| 巡检隐患 | 巡检任务、隐患上报、整改、复查 | 12 |
-| 消息通知 | 站内消息、已读未读 | 4 |
-| 统计分析 | 仪表盘数据统计 | 1 |
-| 设备模拟 | 端口状态变更、故障模拟 | 4 |
-
-### 3.2 五大用户角色
-
-| 角色 | 编码 | 数据范围 | 核心功能 |
-|------|------|---------|---------|
-| 平台管理员 | PLATFORM_ADMIN | 所有社区 | 系统配置、社区管理 |
-| 物业管理员 | PROPERTY_ADMIN | 所属社区 | 设备管理、工单派发、巡检管理 |
-| 运维人员 | MAINTAINER | 个人工单 | 接单、维修、提交结果 |
-| 巡检人员 | INSPECTOR | 个人任务 | 执行巡检、上报隐患 |
-| 居民用户 | RESIDENT | 个人数据 | 预约充电、报修、查看订单 |
-
-### 3.3 核心状态机
-
-**充电端口状态流转：**
-```
-IDLE → RESERVED → CHARGING → IDLE
-IDLE → FAULT → MAINTENANCE → IDLE
-```
-
-**维修工单状态流转：**
-```
-PENDING → DISPATCHED → PROCESSING → WAITING_ACCEPTANCE → FINISHED → CLOSED
-                                         ↓ (驳回)
-                                       REJECTED
-```
-
-**安全隐患状态流转：**
-```
-PENDING → RECTIFYING → WAITING_REVIEW → REVIEW_PASSED → CLOSED
-                                      → REVIEW_FAILED → RECTIFYING
-```
-
-## 四、数据库设计
-
-### 4.1 核心表结构
-
-| 线路 | 表名 | 说明 |
-|------|------|------|
-| 用户权限 | sys_user, sys_role, sys_user_role, operation_log | RBAC 模型 |
-| 社区资源 | community, parking_area, charging_device, charging_port | 层级管理 |
-| 预约充电 | charging_reservation, charging_order | 业务核心 |
-| 报修工单 | repair_report, repair_ticket, repair_ticket_log | 闭环流程 |
-| 巡检隐患 | inspection_task, inspection_record, safety_hazard | 安全管理 |
-| 消息统计 | notification, alarm_record, charging_fee_rule | 辅助功能 |
-
-### 4.2 ER 关系
+### 1.4 项目包结构
 
 ```
-User ──1:N── UserRole ──N:1── Role
-  │
-  ├──1:1── ResidentProfile ──N:1── Community
-  ├──1:N── Vehicle
-  ├──1:N── ChargingReservation ──N:1── ChargingPort
-  └──1:N── ChargingOrder
-
-Community ──1:N── ParkingArea ──1:N── ChargingDevice ──1:N── ChargingPort
-
-RepairReport ──1:1── RepairTicket ──1:N── RepairTicketLog
-InspectionTask ──1:N── InspectionRecord
-SafetyHazard ──1:N── HazardRectificationRecord
+com.chargesafe
+├── ChargeSafeApplication.java          # 启动类
+├── common/                              # 公共组件
+│   ├── Result.java                      # 统一返回格式
+│   ├── ResultCode.java                  # 错误码枚举
+│   ├── PageResult.java                  # 分页返回
+│   ├── PageQuery.java                   # 分页查询参数
+│   ├── BusinessException.java           # 业务异常
+│   ├── GlobalExceptionHandler.java      # 全局异常处理
+│   ├── OperationLog.java               # 操作日志注解
+│   ├── OperationLogAspect.java         # 日志 AOP 切面
+│   ├── OperationLogEntity.java         # 日志实体
+│   └── OperationLogMapper.java         # 日志 Mapper
+├── config/                              # 配置类
+│   ├── MybatisPlusConfig.java           # MyBatis-Plus 配置
+│   ├── SecurityConfig.java             # 安全配置
+│   └── WebConfig.java                   # CORS 配置
+├── security/                            # 安全组件
+│   ├── JwtUtils.java                    # JWT 工具类
+│   ├── JwtAuthenticationFilter.java     # JWT 过滤器
+│   ├── LoginUser.java                   # 登录用户信息
+│   └── UserContext.java                 # 用户上下文 (ThreadLocal)
+└── modules/                             # 业务模块
+    ├── auth/                            # 认证模块
+    ├── user/                            # 用户模块
+    ├── community/                       # 社区资源模块
+    ├── device/                          # 设备模块
+    ├── charging/                        # 预约充电模块
+    ├── repair/                          # 报修工单模块
+    ├── inspection/                      # 巡检隐患模块
+    ├── notification/                    # 消息通知模块
+    ├── statistics/                      # 统计分析模块
+    ├── simulator/                       # 设备模拟模块
+    └── log/                             # 操作日志模块
 ```
 
-## 五、接口设计
+## 二、数据库设计
 
-### 5.1 后端 API 总计
+### 2.1 数据库表清单
 
-共实现 **59 个 RESTful 接口**，涵盖所有核心业务流程。
+共 **19 张核心表**，采用 InnoDB + utf8mb4，支持逻辑删除和多社区数据隔离。
 
-### 5.2 接口分组
+| 线路 | 表名 | 说明 | 核心字段 |
+|------|------|------|---------|
+| 用户权限 | sys_user | 用户表 | id, username, password, community_id |
+| 用户权限 | sys_role | 角色表 | id, role_name, role_code |
+| 用户权限 | sys_user_role | 用户角色关联 | user_id, role_id |
+| 用户权限 | operation_log | 操作日志 | user_id, module, operation, duration |
+| 社区资源 | community | 社区表 | id, name, address |
+| 社区资源 | parking_area | 车棚表 | id, community_id, name |
+| 社区资源 | charging_device | 充电设备表 | id, parking_area_id, device_code |
+| 社区资源 | charging_port | 充电端口表 | id, device_id, status |
+| 居民车辆 | resident_profile | 居民档案 | user_id, community_id, building |
+| 居民车辆 | vehicle | 车辆表 | user_id, plate_number |
+| 预约充电 | charging_reservation | 充电预约 | user_id, port_id, status, expire_time |
+| 预约充电 | charging_order | 充电订单 | order_no, user_id, port_id, amount, status |
+| 报修工单 | repair_report | 报修记录 | reporter_id, device_id, fault_desc, status |
+| 报修工单 | repair_ticket | 维修工单 | ticket_no, assignee_id, status |
+| 报修工单 | repair_ticket_log | 工单日志 | ticket_id, action, from_status, to_status |
+| 巡检隐患 | inspection_task | 巡检任务 | community_id, inspector_id, status |
+| 巡检隐患 | inspection_record | 巡检记录 | task_id, check_item, check_result |
+| 巡检隐患 | safety_hazard | 安全隐患 | community_id, hazard_type, severity, status |
+| 消息统计 | notification | 消息通知 | user_id, type, is_read |
+| 消息统计 | alarm_record | 告警记录 | device_id, alarm_type, status |
+| 消息统计 | charging_fee_rule | 费率规则 | community_id, fee_per_hour |
 
-| 模块 | 路径前缀 | 接口数 |
-|------|---------|-------|
-| 认证 | /api/auth | 2 |
-| 社区 | /api/communities | 5 |
-| 车棚 | /api/parking-areas | 5 |
-| 设备 | /api/devices | 5 |
-| 端口 | /api/ports | 8 |
-| 预约 | /api/reservations | 4 |
-| 充电 | /api/charging | 2 |
-| 订单 | /api/orders | 3 |
-| 报修 | /api/repair-reports | 3 |
-| 工单 | /api/repair-tickets | 8 |
-| 巡检 | /api/inspection-tasks | 7 |
-| 隐患 | /api/hazards | 6 |
-| 通知 | /api/notifications | 4 |
-| 统计 | /api/statistics | 1 |
-| 模拟 | /api/simulator | 4 |
+### 2.2 ER 关系图
 
-## 六、前端页面
+```
+┌─────────┐     ┌─────────────┐     ┌─────────┐
+│ sys_user │────<│sys_user_role│>────│ sys_role │
+└────┬─────┘     └─────────────┘     └─────────┘
+     │
+     ├──1:1── resident_profile ──N:1── community
+     ├──1:N── vehicle
+     ├──1:N── charging_reservation ──N:1── charging_port
+     ├──1:N── charging_order
+     ├──1:N── repair_report ──1:1── repair_ticket
+     └──1:N── notification
 
-### 6.1 Web 管理端页面
+┌─────────┐     ┌─────────────┐     ┌─────────────────┐     ┌───────────────┐
+│community │────<│ parking_area│────<│ charging_device │────<│ charging_port │
+└─────────┘     └─────────────┘     └─────────────────┘     └───────────────┘
 
-| 页面 | 路径 | 功能 |
-|------|------|------|
-| 登录 | /login | 用户登录 |
-| 工作台 | /dashboard | 统计卡片 + 图表 |
-| 社区管理 | /community | 社区列表、增删改 |
-| 车棚管理 | /parking-area | 车棚列表、增删改 |
-| 设备管理 | /device | 设备列表、启停 |
-| 端口管理 | /port | 端口列表、状态修改 |
-| 预约记录 | /reservation | 预约列表 |
-| 充电订单 | /order | 订单列表 |
-| 报修记录 | /repair-report | 报修列表、派单 |
-| 维修工单 | /repair-ticket | 工单列表、接单/完成/验收 |
-| 巡检任务 | /inspection-task | 任务列表、开始/完成 |
-| 安全隐患 | /hazard | 隐患列表、整改/复查 |
-| 消息通知 | /notification | 消息列表、已读 |
+┌────────────────┐     ┌──────────────────┐
+│inspection_task │────<│inspection_record │
+└────────────────┘     └──────────────────┘
 
-### 6.2 小程序端页面
+┌───────────────┐
+│ safety_hazard │
+└───────────────┘
+```
 
-| 页面 | 说明 |
+### 2.3 核心状态枚举
+
+**充电端口状态 (charging_port.status)**
+| 状态 | 含义 | 可流转到 |
+|------|------|---------|
+| IDLE | 空闲 | RESERVED, FAULT, DISABLED, OFFLINE |
+| RESERVED | 已预约 | CHARGING, IDLE(超时取消) |
+| CHARGING | 充电中 | IDLE(结束充电) |
+| FAULT | 故障 | MAINTENANCE |
+| MAINTENANCE | 维修中 | IDLE |
+| DISABLED | 停用 | IDLE |
+| OFFLINE | 离线 | IDLE |
+
+**维修工单状态 (repair_ticket.status)**
+| 状态 | 含义 | 可流转到 |
+|------|------|---------|
+| PENDING | 待受理 | DISPATCHED |
+| DISPATCHED | 已派单 | PROCESSING |
+| PROCESSING | 处理中 | WAITING_ACCEPTANCE |
+| WAITING_ACCEPTANCE | 待验收 | FINISHED, REJECTED |
+| FINISHED | 已完成 | CLOSED |
+| CLOSED | 已关闭 | - |
+| REJECTED | 已驳回 | DISPATCHED |
+
+**安全隐患状态 (safety_hazard.status)**
+| 状态 | 含义 | 可流转到 |
+|------|------|---------|
+| PENDING | 待处理 | RECTIFYING |
+| RECTIFYING | 整改中 | WAITING_REVIEW |
+| WAITING_REVIEW | 待复查 | REVIEW_PASSED, REVIEW_FAILED |
+| REVIEW_PASSED | 复查通过 | CLOSED |
+| REVIEW_FAILED | 复查不通过 | RECTIFYING |
+| CLOSED | 已关闭 | - |
+
+## 三、接口设计
+
+### 3.1 接口规范
+
+- 统一返回格式：`{ "code": 200, "message": "success", "data": {} }`
+- 认证方式：JWT Token，Header `Authorization: Bearer {token}`
+- 分页参数：`page` (页码), `size` (每页条数)
+- 分页返回：`{ "total": N, "page": N, "size": N, "pages": N, "records": [] }`
+
+### 3.2 接口清单
+
+| 模块 | 路径前缀 | 接口数 | 说明 |
+|------|---------|-------|------|
+| 认证 | `/api/auth` | 2 | 登录、获取当前用户 |
+| 社区 | `/api/communities` | 5 | CRUD + 启停 |
+| 车棚 | `/api/parking-areas` | 5 | CRUD + 列表 |
+| 设备 | `/api/devices` | 5 | CRUD + 启停 |
+| 端口 | `/api/ports` | 8 | CRUD + 批量创建 + 统计 |
+| 预约 | `/api/reservations` | 4 | 创建、取消、查询 |
+| 充电 | `/api/charging` | 2 | 开始、结束 |
+| 订单 | `/api/orders` | 3 | 列表、详情 |
+| 报修 | `/api/repair-reports` | 3 | 创建、列表、详情 |
+| 工单 | `/api/repair-tickets` | 8 | 派单、接单、完成、验收等 |
+| 巡检 | `/api/inspection-tasks` | 7 | 创建、开始、提交、完成 |
+| 隐患 | `/api/hazards` | 6 | 上报、整改、复查、关闭 |
+| 通知 | `/api/notifications` | 4 | 列表、已读、未读数 |
+| 统计 | `/api/statistics` | 1 | 仪表盘数据 |
+| 模拟 | `/api/simulator` | 4 | 端口状态变更、故障模拟 |
+| 日志 | `/api/logs` | 2 | 列表、详情 |
+
+**共计：61 个 RESTful 接口**
+
+## 四、核心业务流程
+
+### 4.1 预约充电流程
+
+```
+居民查看空闲端口 → 选择端口 → 提交预约 → 系统校验
+                                              │
+                                              ▼
+                                    ┌─── 校验通过 ───┐
+                                    │                 │
+                                    ▼                 ▼
+                              创建预约记录      提示"预约失败"
+                              端口状态→RESERVED
+                              发送通知
+                                    │
+                                    ▼
+                              居民扫码开始充电
+                              预约状态→CONVERTED
+                              端口状态→CHARGING
+                              创建充电订单
+                                    │
+                                    ▼
+                              结束充电 / 充满自动结束
+                              端口状态→IDLE
+                              计算费用
+                              订单状态→COMPLETED
+                              发送完成通知
+```
+
+### 4.2 报修工单流程
+
+```
+居民/物业/巡检提交报修 → 创建报修记录 → 通知物业
+                                          │
+                                          ▼
+                                    物业审核确认
+                                    生成维修工单
+                                    派发给运维人员
+                                    通知运维
+                                          │
+                                          ▼
+                                    运维接单 → 开始处理
+                                    工单状态→PROCESSING
+                                          │
+                                          ▼
+                                    维修完成
+                                    上传维修照片
+                                    工单状态→WAITING_ACCEPTANCE
+                                    通知物业验收
+                                          │
+                                          ▼
+                                    物业验收
+                                    ├── 通过 → 工单关闭 → 端口恢复IDLE
+                                    └── 驳回 → 重新派单
+```
+
+### 4.3 巡检隐患流程
+
+```
+物业创建巡检任务 → 分配给巡检人员 → 通知巡检人员
+                                      │
+                                      ▼
+                                巡检人员开始巡检
+                                填写巡检记录
+                                      │
+                                      ▼
+                                发现异常 → 上报安全隐患
+                                通知物业处理
+                                      │
+                                      ▼
+                                物业执行整改
+                                提交整改结果
+                                通知巡检人员复查
+                                      │
+                                      ▼
+                                巡检人员复查
+                                ├── 通过 → 隐患关闭
+                                └── 不通过 → 重新整改
+```
+
+## 五、安全设计
+
+### 5.1 认证授权
+
+- 使用 JWT Token 认证，有效期 24 小时
+- Token 包含 userId、username、roleCode
+- 通过 ThreadLocal 存储当前登录用户信息
+
+### 5.2 数据权限
+
+- 平台管理员：可访问所有社区数据
+- 物业管理员：只能访问所属社区数据
+- 运维人员：只能访问分配给自己的工单
+- 巡检人员：只能访问分配给自己的任务
+- 居民用户：只能访问自己的数据
+
+### 5.3 操作日志
+
+- 基于 AOP + 自定义注解 `@OperationLog`
+- 自动记录操作人、操作模块、操作描述、请求参数、IP、耗时
+- 支持按用户名、模块筛选查询
+
+## 六、部署架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     用户浏览器                               │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Nginx (80/443)                          │
+│                     charge.sfwang.xyz                       │
+├───────────────────────────┬─────────────────────────────────┤
+│  /                        │  /api                           │
+│  静态文件 (Vue3 dist)      │  反向代理                       │
+│                           │  → http://127.0.0.1:8081/api   │
+└───────────────────────────┴─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│               Spring Boot (127.0.0.1:8081)                  │
+│               Profile: prod                                 │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│               MySQL 8.x (127.0.0.1:3306)                    │
+│               Database: charge_safe                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 6.1 服务器文件位置
+
+| 文件 | 位置 |
 |------|------|
-| 登录页 | 用户登录 |
-| 首页 | 功能入口 + 最近订单 |
-| 车棚列表 | 查看车棚和空闲端口 |
-| 车棚详情 | 端口状态、预约 |
-| 预约确认 | 确认预约 |
-| 充电中 | 充电状态展示 |
-| 我的订单 | 订单列表 |
-| 报修页 | 提交报修 |
-| 消息页 | 消息通知 |
-
-## 七、项目边界
-
-本系统明确以下边界：
-
-| 边界项 | 说明 |
-|--------|------|
-| 硬件接入 | 不接入真实充电硬件，通过设备状态模拟层完成业务闭环 |
-| 支付功能 | 不做真实支付，只记录模拟费用 |
-| 地图定位 | 不强依赖地图定位 |
-| 身份验证 | 不采集身份证等高敏信息 |
-| 物联网 | 不做复杂物联网长连接 |
-| 电量采集 | 不做真实电量采集，只模拟充电时长和费用 |
-| 小程序 | 优先完成居民核心流程原型 |
-
-## 八、部署方案
-
-### 8.1 开发环境
-
-```bash
-# 后端
-cd charge-safe-backend && mvn spring-boot:run
-
-# 前端
-cd charge-safe-admin && npm run dev
-```
-
-### 8.2 生产环境
-
-| 组件 | 部署方式 |
-|------|---------|
-| MySQL | 云服务器或 RDS |
-| 后端 | Nginx + Spring Boot Jar |
-| 前端 | Nginx 静态托管 |
-| 小程序 | 微信开发者工具上传 |
-
-## 九、总结
-
-ChargeSafe 系统作为软件工程课程设计项目，实现了以下目标：
-
-1. **需求分析完整**：涵盖 5 种角色、8 个核心模块、59 个接口。
-2. **架构设计清晰**：采用前后端分离架构，后端分模块组织。
-3. **状态机严谨**：充电端口、预约、订单、工单、隐患均有完整状态流转。
-4. **数据库规范**：19 张核心表，逻辑外键，支持多社区数据隔离。
-5. **代码可运行**：后端 Maven 编译通过，前端 Vite 构建通过。
-6. **边界明确**：不接真实硬件和支付，通过模拟完成业务闭环验证。
+| 后端 JAR | `/opt/charge-safe/charge-safe-backend.jar` |
+| 环境变量 | `/etc/charge-safe/charge-safe.env` |
+| Nginx 配置 | `/etc/nginx/conf.d/charge-safe.conf` |
+| 前端静态文件 | `/opt/charge-safe/admin/` |
