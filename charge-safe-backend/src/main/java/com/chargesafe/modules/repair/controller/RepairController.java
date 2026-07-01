@@ -1,5 +1,6 @@
 package com.chargesafe.modules.repair.controller;
 
+import com.chargesafe.common.OperationLog;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.Result;
@@ -26,6 +27,7 @@ public class RepairController {
     // ==================== 报修相关 ====================
 
     @Operation(summary = "提交报修")
+    @OperationLog(module = "报修管理", description = "提交报修", type = "CREATE")
     @PostMapping("/repair-reports")
     public Result<RepairReport> createReport(@Valid @RequestBody RepairReportDTO dto) {
         return Result.success(repairService.createReport(dto));
@@ -49,12 +51,14 @@ public class RepairController {
     // ==================== 工单相关 ====================
 
     @Operation(summary = "派发工单")
+    @OperationLog(module = "报修管理", description = "派发工单", type = "UPDATE")
     @PostMapping("/repair-tickets/dispatch")
     public Result<RepairTicket> dispatchTicket(@Valid @RequestBody TicketDispatchDTO dto) {
         return Result.success(repairService.dispatchTicket(dto));
     }
 
     @Operation(summary = "运维人员接单")
+    @OperationLog(module = "报修管理", description = "运维人员接单", type = "UPDATE")
     @PostMapping("/repair-tickets/{id}/accept")
     public Result<Void> acceptTicket(@PathVariable Long id) {
         repairService.acceptTicket(id);
@@ -69,6 +73,7 @@ public class RepairController {
     }
 
     @Operation(summary = "维修完成")
+    @OperationLog(module = "报修管理", description = "维修完成", type = "UPDATE")
     @PostMapping("/repair-tickets/{id}/finish")
     public Result<Void> finishTicket(@PathVariable Long id, @Valid @RequestBody TicketFinishDTO dto) {
         repairService.finishTicket(id, dto);
@@ -76,6 +81,7 @@ public class RepairController {
     }
 
     @Operation(summary = "验收工单")
+    @OperationLog(module = "报修管理", description = "验收工单", type = "UPDATE")
     @PostMapping("/repair-tickets/{id}/accept-repair")
     public Result<Void> acceptTicketByProperty(@PathVariable Long id) {
         repairService.acceptTicketByProperty(id);

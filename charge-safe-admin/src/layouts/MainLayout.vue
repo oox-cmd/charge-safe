@@ -95,7 +95,8 @@ const allMenuItems = [
   { path: '/repair-ticket', title: '维修工单', icon: 'Tickets', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN', 'MAINTAINER'] },
   { path: '/inspection-task', title: '巡检任务', icon: 'Checked', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN', 'INSPECTOR'] },
   { path: '/hazard', title: '安全隐患', icon: 'WarnTriangleFilled', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN', 'INSPECTOR'] },
-  { path: '/notification', title: '消息通知', icon: 'Bell', roles: [] }
+  { path: '/notification', title: '消息通知', icon: 'Bell', roles: [] },
+  { path: '/log', title: '操作日志', icon: 'Notebook', roles: ['PLATFORM_ADMIN'] }
 ]
 
 const menuItems = computed(() => {

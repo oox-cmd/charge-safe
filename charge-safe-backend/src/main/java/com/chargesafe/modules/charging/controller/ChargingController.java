@@ -1,5 +1,6 @@
 package com.chargesafe.modules.charging.controller;
 
+import com.chargesafe.common.OperationLog;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.Result;
@@ -25,12 +26,14 @@ public class ChargingController {
     // ==================== 预约相关 ====================
 
     @Operation(summary = "预约充电端口")
+    @OperationLog(module = "预约充电", description = "预约充电端口", type = "CREATE")
     @PostMapping("/reservations")
     public Result<ChargingReservation> createReservation(@Valid @RequestBody ReservationDTO dto) {
         return Result.success(chargingService.createReservation(dto));
     }
 
     @Operation(summary = "取消预约")
+    @OperationLog(module = "预约充电", description = "取消预约", type = "UPDATE")
     @PostMapping("/reservations/{id}/cancel")
     public Result<Void> cancelReservation(@PathVariable Long id) {
         chargingService.cancelReservation(id);

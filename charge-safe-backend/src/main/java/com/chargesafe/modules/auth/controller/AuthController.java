@@ -1,5 +1,6 @@
 package com.chargesafe.modules.auth.controller;
 
+import com.chargesafe.common.OperationLog;
 import com.chargesafe.common.Result;
 import com.chargesafe.modules.auth.dto.LoginDTO;
 import com.chargesafe.modules.auth.service.AuthService;
@@ -19,6 +20,7 @@ public class AuthController {
     private final AuthService authService;
 
     @Operation(summary = "用户登录")
+    @OperationLog(module = "认证管理", description = "用户登录", type = "LOGIN")
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));

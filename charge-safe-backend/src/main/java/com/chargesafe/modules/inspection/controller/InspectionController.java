@@ -1,5 +1,6 @@
 package com.chargesafe.modules.inspection.controller;
 
+import com.chargesafe.common.OperationLog;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.Result;
@@ -26,6 +27,7 @@ public class InspectionController {
     // ==================== 巡检任务 ====================
 
     @Operation(summary = "创建巡检任务")
+    @OperationLog(module = "巡检管理", description = "创建巡检任务", type = "CREATE")
     @PostMapping("/inspection-tasks")
     public Result<InspectionTask> createTask(@Valid @RequestBody InspectionTaskDTO dto) {
         return Result.success(inspectionService.createTask(dto));
@@ -57,6 +59,7 @@ public class InspectionController {
     }
 
     @Operation(summary = "开始巡检")
+    @OperationLog(module = "巡检管理", description = "开始巡检", type = "UPDATE")
     @PostMapping("/inspection-tasks/{id}/start")
     public Result<Void> startTask(@PathVariable Long id) {
         inspectionService.startTask(id);
@@ -79,6 +82,7 @@ public class InspectionController {
     // ==================== 安全隐患 ====================
 
     @Operation(summary = "上报安全隐患")
+    @OperationLog(module = "隐患管理", description = "上报安全隐患", type = "CREATE")
     @PostMapping("/hazards")
     public Result<SafetyHazard> reportHazard(@Valid @RequestBody HazardReportDTO dto) {
         return Result.success(inspectionService.reportHazard(dto));
@@ -100,6 +104,7 @@ public class InspectionController {
     }
 
     @Operation(summary = "隐患整改")
+    @OperationLog(module = "隐患管理", description = "隐患整改", type = "UPDATE")
     @PostMapping("/hazards/{id}/rectify")
     public Result<Void> rectifyHazard(@PathVariable Long id, @Valid @RequestBody HazardRectifyDTO dto) {
         inspectionService.rectifyHazard(id, dto);

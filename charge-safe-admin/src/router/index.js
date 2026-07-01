@@ -96,6 +96,13 @@ const routes = [
         name: 'Notification',
         component: () => import('@/views/notification/Index.vue'),
         meta: { title: '消息通知', icon: 'Bell' }
+      },
+      // 操作日志
+      {
+        path: 'log',
+        name: 'Log',
+        component: () => import('@/views/log/Index.vue'),
+        meta: { title: '操作日志', icon: 'Notebook', roles: ['PLATFORM_ADMIN'] }
       }
     ]
   },

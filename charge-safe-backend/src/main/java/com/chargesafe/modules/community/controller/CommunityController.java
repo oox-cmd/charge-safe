@@ -1,5 +1,6 @@
 package com.chargesafe.modules.community.controller;
 
+import com.chargesafe.common.OperationLog;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.Result;
@@ -41,12 +42,14 @@ public class CommunityController {
     }
 
     @Operation(summary = "创建社区")
+    @OperationLog(module = "社区管理", description = "创建社区", type = "CREATE")
     @PostMapping
     public Result<Community> create(@Valid @RequestBody CommunityDTO dto) {
         return Result.success(communityService.create(dto));
     }
 
     @Operation(summary = "更新社区")
+    @OperationLog(module = "社区管理", description = "更新社区", type = "UPDATE")
     @PutMapping("/{id}")
     public Result<Community> update(@PathVariable Long id, @Valid @RequestBody CommunityDTO dto) {
         dto.setId(id);
@@ -54,6 +57,7 @@ public class CommunityController {
     }
 
     @Operation(summary = "启用/停用社区")
+    @OperationLog(module = "社区管理", description = "启用/停用社区", type = "UPDATE")
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
         communityService.updateStatus(id, status);

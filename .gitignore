@@ -31,6 +31,9 @@ build/
 # 日志
 logs/
 *.log
+*.log.*
+**/logs/**
+**/*.log
 
 # 系统文件
 .DS_Store
