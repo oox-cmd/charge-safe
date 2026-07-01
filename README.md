@@ -14,51 +14,55 @@ ChargeSafe 是一个面向小区、园区、学校宿舍区、写字楼等场景
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Java 17 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT |
+| 后端 | Java 17 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT · Flyway |
 | Web 管理端 | Vue 3 · Vite · Element Plus · Pinia · Axios · ECharts |
 | 小程序端 | uni-app · Vue 3 |
 | 接口文档 | Knife4j (Swagger) |
-
-## 功能模块
-
-| 模块 | 说明 |
-|------|------|
-| 用户与角色管理 | RBAC 权限模型，5 种角色，菜单权限 + 数据权限 |
-| 社区资源管理 | 社区 → 车棚 → 设备 → 端口 层级管理 |
-| 预约充电 | 预约端口、扫码开始充电、结束充电、生成订单 |
-| 报修工单 | 居民报修、工单派发、维修处理、验收关闭 |
-| 巡检隐患 | 巡检任务、隐患上报、整改复查 |
-| 消息通知 | 站内消息通知、已读未读 |
-| 统计分析 | 仪表盘数据、ECharts 图表 |
-| 设备模拟 | 模拟端口状态变化，触发告警和工单 |
 
 ## 项目结构
 
 ```
 charge-safe/
-├── charge-safe-backend/          # Spring Boot 后端
-│   └── src/main/java/com/chargesafe/
-│       ├── common/               # Result, PageResult, 异常处理
-│       ├── config/               # MyBatis, CORS, Security
-│       ├── security/             # JWT, UserContext
-│       └── modules/              # 业务模块 (auth/community/device/charging/repair/inspection/notification/statistics/simulator)
-├── charge-safe-admin/            # Vue3 Web 管理端
-│   └── src/
-│       ├── api/                  # API 请求封装
-│       ├── layouts/              # 页面布局
-│       ├── router/               # 路由配置
-│       ├── stores/               # Pinia 状态管理
-│       └── views/                # 页面组件
-├── charge-safe-miniapp/          # uni-app 小程序端
-│   └── src/pages/                # 页面
-├── sql/                          # 数据库脚本
-│   ├── schema.sql                # 建表语句 (19 张表)
-│   └── data.sql                  # 初始数据
-├── docs/
-│   └── summary.md                # 项目详细总结
+├── charge-safe-backend/              # Spring Boot 后端
+│   └── src/main/
+│       ├── java/com/chargesafe/
+│       │   ├── common/               # Result, PageResult, 异常处理, 日志注解
+│       │   ├── config/               # MyBatis, CORS, Security
+│       │   ├── security/             # JWT, UserContext
+│       │   └── modules/              # 业务模块
+│       └── resources/
+│           ├── application.yml       # 通用配置
+│           ├── application-local.yml # 本地开发库
+│           ├── application-dev.yml   # 云端共享开发库
+│           ├── application-prod.yml  # 云端正式演示库
+│           └── db/migration/         # Flyway 迁移文件
+│               ├── V1__init_schema.sql
+│               └── V2__init_data.sql
+├── charge-safe-admin/                # Vue3 Web 管理端
+├── charge-safe-miniapp/              # uni-app 小程序端
+├── sql/                              # 原始数据库脚本 (仅供参考)
+├── docs/                             # 项目文档
 ├── README.md
 └── .gitignore
 ```
+
+## 多环境配置
+
+本项目支持三套数据库环境，通过 Spring Profile 切换：
+
+| 环境 | Profile | 用途 | 数据库 |
+|------|---------|------|--------|
+| 本地开发库 | `local` | 个人开发调试 | `127.0.0.1:3306/charge_safe_dev` |
+| 云端共享开发库 | `dev` | 多人联调测试 | `127.0.0.1:13306/charge_safe_dev` (SSH 隧道) |
+| 云端正式演示库 | `prod` | 正式部署演示 | `127.0.0.1:3306/charge_safe` (服务器本机) |
+
+### 数据库连接信息
+
+| 环境 | Host | Port | Database | Username | Password |
+|------|------|------|----------|----------|----------|
+| 本地开发库 | 127.0.0.1 | 3306 | charge_safe_dev | charge_safe_app | cugb666 |
+| 云端开发库 (隧道) | 127.0.0.1 | 13306 | charge_safe_dev | charge_safe_app | cugb666 |
+| 云端正式库 | 127.0.0.1 | 3306 | charge_safe | charge_safe_app | cugb666 |
 
 ## 快速开始
 
@@ -69,29 +73,23 @@ git clone https://github.com/wangsf134/charge-safe.git
 cd charge-safe
 ```
 
-### 2. 初始化数据库
-
-确保 MySQL 8.x 已启动：
+### 2. 创建本地数据库
 
 ```bash
-# 创建数据库
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS charge_safe DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-
-# 导入表结构和初始数据
-mysql -u root -p charge_safe < sql/schema.sql
-mysql -u root -p charge_safe < sql/data.sql
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS charge_safe_dev DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+mysql -u root -p -e "CREATE USER IF NOT EXISTS 'charge_safe_app'@'%' IDENTIFIED BY 'cugb666';"
+mysql -u root -p -e "GRANT ALL PRIVILEGES ON charge_safe_dev.* TO 'charge_safe_app'@'%';"
+mysql -u root -p -e "FLUSH PRIVILEGES;"
 ```
 
-### 3. 启动后端
+### 3. 启动后端 (本地开发)
 
 ```bash
 cd charge-safe-backend
-
-# 如果 MySQL 用户名密码不是 root/root，先修改 application.yml
-# vim src/main/resources/application.yml
-
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
+
+Flyway 会自动初始化数据库表结构和初始数据。
 
 后端运行在 `http://localhost:8080`，API 文档：`http://localhost:8080/doc.html`
 
@@ -115,6 +113,51 @@ npm run dev:mp-weixin
 
 使用微信开发者工具打开 `dist/dev/mp-weixin` 目录。
 
+## 多人联调
+
+### 1. 打开 SSH 隧道
+
+在本地 PowerShell 执行：
+
+```powershell
+ssh -L 13306:127.0.0.1:3306 root@43.108.40.12
+```
+
+### 2. 使用 dev profile 启动
+
+```bash
+cd charge-safe-backend
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+## 服务器部署
+
+### 环境变量配置
+
+服务器环境变量文件位置：`/etc/charge-safe/charge-safe.env`
+
+```env
+SPRING_PROFILES_ACTIVE=prod
+SERVER_PORT=8081
+CHARGE_SAFE_DB_HOST=127.0.0.1
+CHARGE_SAFE_DB_PORT=3306
+CHARGE_SAFE_DB_NAME=charge_safe
+CHARGE_SAFE_DB_USERNAME=charge_safe_app
+CHARGE_SAFE_DB_PASSWORD=cugb666
+```
+
+### 启动命令
+
+```bash
+java -jar /opt/charge-safe/charge-safe-backend.jar
+```
+
+### Nginx 配置
+
+前端通过 Nginx 访问 `/api`，反向代理到 `http://127.0.0.1:8081/api`
+
+域名：`http://charge.sfwang.xyz`
+
 ## 默认账号
 
 | 角色 | 用户名 | 密码 |
@@ -125,9 +168,89 @@ npm run dev:mp-weixin
 | 巡检人员 | inspector01 | 123456 |
 | 居民用户 | resident01 | 123456 |
 
+## DataGrip 使用说明
+
+### 本地开发库
+
+```
+Host: 127.0.0.1
+Port: 3306
+Database: charge_safe_dev
+User: charge_safe_app
+Password: cugb666
+```
+
+### 云端共享开发库
+
+先打开 SSH 隧道：
+```powershell
+ssh -L 13306:127.0.0.1:3306 root@43.108.40.12
+```
+
+DataGrip 连接：
+```
+Host: 127.0.0.1
+Port: 13306
+Database: charge_safe_dev
+User: charge_safe_app
+Password: cugb666
+```
+
+### 云端正式演示库
+
+```
+Host: 127.0.0.1
+Port: 13306
+Database: charge_safe
+User: charge_safe_app
+Password: cugb666
+```
+
+## 数据库迁移
+
+项目使用 Flyway 管理数据库迁移，迁移文件位于：
+
+```
+charge-safe-backend/src/main/resources/db/migration/
+├── V1__init_schema.sql    # 表结构
+└── V2__init_data.sql      # 初始数据
+```
+
+### 规则
+
+1. 所有表结构变更必须通过新的迁移文件提交到 Git
+2. 不允许手动改库后只口头同步
+3. 不允许业务代码启动时自动 DROP 表
+4. 本地库、云端开发库、云端正式库的表结构由同一套迁移文件生成
+
+### 新增迁移文件
+
+每次修改数据库结构后，创建新的迁移文件：
+
+```
+V3__add_xxx_column.sql
+V4__add_xxx_table.sql
+```
+
+文件名格式：`V{版本号}__{描述}.sql`
+
+## 功能模块
+
+| 模块 | 说明 |
+|------|------|
+| 用户与角色管理 | RBAC 权限模型，5 种角色，菜单权限 + 数据权限 |
+| 社区资源管理 | 社区 → 车棚 → 设备 → 端口 层级管理 |
+| 预约充电 | 预约端口、扫码开始充电、结束充电、生成订单 |
+| 报修工单 | 居民报修、工单派发、维修处理、验收关闭 |
+| 巡检隐患 | 巡检任务、隐患上报、整改复查 |
+| 消息通知 | 站内消息通知、已读未读 |
+| 统计分析 | 仪表盘数据、ECharts 图表 |
+| 设备模拟 | 模拟端口状态变化，触发告警和工单 |
+| 操作日志 | AOP 自动记录关键操作日志 |
+
 ## API 接口
 
-共实现 **59 个 RESTful 接口**：
+共实现 **61 个 RESTful 接口**：
 
 | 模块 | 路径前缀 | 接口数 |
 |------|---------|-------|
@@ -146,24 +269,16 @@ npm run dev:mp-weixin
 | 通知 | `/api/notifications` | 4 |
 | 统计 | `/api/statistics` | 1 |
 | 模拟 | `/api/simulator` | 4 |
+| 日志 | `/api/logs` | 2 |
 
-## 核心状态机
+## 特别注意
 
-### 充电端口
-```
-IDLE(空闲) → RESERVED(已预约) → CHARGING(充电中) → IDLE(空闲)
-IDLE(空闲) → FAULT(故障) → MAINTENANCE(维修中) → IDLE(空闲)
-```
-
-### 维修工单
-```
-PENDING → DISPATCHED → PROCESSING → WAITING_ACCEPTANCE → FINISHED → CLOSED
-```
-
-### 安全隐患
-```
-PENDING → RECTIFYING → WAITING_REVIEW → REVIEW_PASSED → CLOSED
-```
+1. 本地 `charge_safe_dev` 和云端 `charge_safe_dev` 名字相同，但不是同一个数据库
+2. 云端 `charge_safe_dev` 是共享开发库，不要做破坏性测试
+3. 正式库 `charge_safe` 不允许随意清空
+4. 所有数据库结构修改必须提交 Flyway 迁移文件
+5. 前端开发默认请求本地后端：`http://localhost:8080/api`
+6. 服务器部署时，前端通过 Nginx 访问 `/api`，反向代理到 `http://127.0.0.1:8081/api`
 
 ## 项目边界
 
@@ -175,29 +290,3 @@ PENDING → RECTIFYING → WAITING_REVIEW → REVIEW_PASSED → CLOSED
 | 身份验证 | 不采集身份证等高敏信息 |
 | 物联网 | 不做复杂物联网长连接 |
 | 电量采集 | 不做真实电量采集，只模拟充电时长和费用 |
-
-## 数据库设计
-
-共 **19 张核心表**，采用 InnoDB + utf8mb4，支持逻辑删除和多社区数据隔离：
-
-| 线路 | 表 |
-|------|-----|
-| 用户权限 | sys_user, sys_role, sys_user_role, operation_log |
-| 社区资源 | community, parking_area, charging_device, charging_port |
-| 预约充电 | charging_reservation, charging_order |
-| 报修工单 | repair_report, repair_ticket, repair_ticket_log |
-| 巡检隐患 | inspection_task, inspection_record, safety_hazard |
-| 消息统计 | notification, alarm_record, charging_fee_rule |
-
-详细设计见 [docs/summary.md](docs/summary.md)
-
-## 课程设计报告素材
-
-本项目可直接用于软件工程课程设计报告，相关素材见 `docs/summary.md`，包含：
-- 项目背景与目标
-- 技术架构
-- 功能模块说明
-- 数据库设计
-- 接口设计
-- 状态机设计
-- 部署方案

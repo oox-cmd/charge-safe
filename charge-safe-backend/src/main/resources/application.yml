@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   servlet:
     context-path: /
 
@@ -7,10 +7,12 @@ spring:
   application:
     name: charge-safe-backend
   datasource:
-    url: jdbc:mysql://localhost:3306/charge_safe_dev?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -19,7 +21,6 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: deleted
@@ -39,6 +40,5 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-logging:
-  level:
-    com.chargesafe: debug
+# 默认激活 local profile
+spring.profiles.active: ${SPRING_PROFILES_ACTIVE:local}

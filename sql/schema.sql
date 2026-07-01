@@ -60,15 +60,19 @@ CREATE TABLE `operation_log` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `user_id` bigint DEFAULT NULL COMMENT '操作用户ID',
   `username` varchar(50) DEFAULT NULL COMMENT '操作用户名',
-  `operation` varchar(50) NOT NULL COMMENT '操作类型',
+  `operation` varchar(50) NOT NULL COMMENT '操作描述',
+  `module` varchar(50) DEFAULT NULL COMMENT '操作模块',
   `method` varchar(200) DEFAULT NULL COMMENT '请求方法',
   `params` text DEFAULT NULL COMMENT '请求参数',
+  `url` varchar(255) DEFAULT NULL COMMENT '请求URL',
   `ip` varchar(50) DEFAULT NULL COMMENT 'IP地址',
   `status` tinyint DEFAULT 1 COMMENT '操作状态: 0-失败 1-成功',
   `error_msg` text DEFAULT NULL COMMENT '错误信息',
+  `duration` bigint DEFAULT NULL COMMENT '耗时(毫秒)',
   `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
+  KEY `idx_module` (`module`),
   KEY `idx_created_time` (`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
 
