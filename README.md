@@ -105,17 +105,7 @@ npm run dev
 
 ### 5. 小程序端 (可选)
 
-**方式一：微信小程序预览**
-
-```bash
-cd charge-safe-miniapp
-npm install
-npm run dev:mp-weixin
-```
-
-编译完成后，用微信开发者工具导入 `charge-safe-miniapp/dist/dev/mp-weixin` 目录。
-
-**方式二：H5 浏览器预览 (推荐调试)**
+**方式一：H5 浏览器预览 (推荐调试)**
 
 ```bash
 cd charge-safe-miniapp
@@ -124,6 +114,16 @@ npm run dev:h5
 ```
 
 浏览器打开 `http://localhost:5173`，可直接在浏览器中调试页面。
+
+**方式二：微信小程序**
+
+```bash
+cd charge-safe-miniapp
+npm install
+npm run build:mp-weixin
+```
+
+编译完成后，用微信开发者工具导入 `charge-safe-miniapp/dist/build/mp-weixin` 目录。
 
 > 注意：小程序端目前为基础骨架，核心功能在 Web 管理端实现。
 
