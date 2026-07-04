@@ -41,3 +41,7 @@ Thumbs.db
 
 # 小程序
 charge-safe-miniapp/dist/
+
+# 大文件
+*.zip
+*.gif
