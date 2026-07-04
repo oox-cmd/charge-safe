@@ -465,3 +465,81 @@ java -jar /opt/charge-safe/charge-safe-backend.jar
 - 完成 Vue3 Web 管理端开发，包含 15 个页面
 - 完成 uni-app 小程序端基础骨架
 - 实现核心状态机：充电端口、维修工单、安全隐患
+
+---
+
+## 开发说明
+
+> **注意：本节内容需要随开发过程持续更新。**
+
+### 当前开发阶段
+
+**P0 功能已完成，进入前端体验优化阶段。**
+
+根据审查，当前前端整体 AI 味过重，需要进行 UI/UX 整改。详见：
+- `docs/audit/overall-function-and-experience-audit.md` — 功能与体验总审查
+- `docs/audit/frontend-ui-ai-flavor-audit.md` — AI 味问题清单
+- `docs/audit/new-frontend-design-guidelines.md` — 新设计规范
+- `docs/tasks/frontend-polish-and-fix-execution-plan.md` — 整改执行计划
+
+### Skills 使用
+
+项目已集成以下 Skills，开发时必须参考：
+
+| Skill | 用途 | 路径 |
+|-------|------|------|
+| ui-ux-pro-max | UI/UX 设计标准 | `skills/ui-ux-pro-max/` |
+| frontend-design | 避免 AI 味的设计原则 | `skills/anthropic-skills/skills/frontend-design/` |
+| superpowers | 核心开发技能库 | `skills/superpowers/` |
+| systematic-debugging | 系统化调试流程 | `skills/superpowers/skills/systematic-debugging/` |
+| verification-before-completion | 完成前验证 | `skills/superpowers/skills/verification-before-completion/` |
+
+**全局安装（推荐）：**
+```bash
+# 将 skills 复制到全局目录
+cp -r skills/superpowers/skills/* ~/.claude/skills/
+cp -r skills/ui-ux-pro-max/ ~/.claude/skills/ui-ux-pro-max/
+cp -r skills/anthropic-skills/skills/frontend-design/ ~/.claude/skills/frontend-design/
+```
+
+### 下一步开发重点
+
+1. **阶段 1**：演示级功能修复（预约流程、大屏数据对接）
+2. **阶段 2**：管理端 UI 统一（搜索区、状态标签、按钮样式）
+3. **阶段 3**：统计分析页重构（业务问题导向）
+4. **阶段 4**：大屏整页重构（端口状态矩阵为核心）
+5. **阶段 5**：小程序体验重构（首页主路径、车棚详情）
+
+详见 `docs/tasks/frontend-polish-and-fix-execution-plan.md`
+
+### 设计规范摘要
+
+**管理端风格：** 成熟、干净、稳定的运维后台，以表格和状态为核心
+
+**大屏风格：** 克制的深色运维风，围绕社区充电安全，不要科技蓝模板
+
+**小程序风格：** 轻量、清楚、易用，突出"找车棚→预约→充电"主路径
+
+**端口状态颜色（必须遵守）：**
+| 状态 | 颜色 | 色值 |
+|------|------|------|
+| IDLE (空闲) | 绿色 | #22c55e |
+| RESERVED (已预约) | 蓝色 | #3b82f6 |
+| CHARGING (充电中) | 橙色 | #f59e0b |
+| FAULT (故障) | 红色 | #ef4444 |
+| MAINTENANCE (维修中) | 灰色 | #94a3b8 |
+
+详见 `docs/audit/new-frontend-design-guidelines.md`
+
+### 文档索引
+
+| 文档 | 路径 | 用途 |
+|------|------|------|
+| 功能审查 | `docs/audit/overall-function-and-experience-audit.md` | 当前问题总览 |
+| AI 味审查 | `docs/audit/frontend-ui-ai-flavor-audit.md` | 前端问题清单 |
+| 设计规范 | `docs/audit/new-frontend-design-guidelines.md` | 改代码必须遵守 |
+| 执行计划 | `docs/tasks/frontend-polish-and-fix-execution-plan.md` | 下一步任务书 |
+| 数据库设计 | `docs/design/database-design.md` | 数据表结构 |
+| 前端页面设计 | `docs/design/frontend-page-design.md` | 页面设计说明 |
+| 大屏设计 | `docs/design/dashboard-visual-design.md` | 大屏可视化设计 |
+| 小程序设计 | `docs/design/miniapp-page-design.md` | 小程序页面设计 |
