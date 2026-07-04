@@ -40,6 +40,21 @@ public class ChargingController {
         return Result.success();
     }
 
+    @Operation(summary = "过期取消预约")
+    @PostMapping("/reservations/{id}/expire")
+    public Result<Void> expireReservation(@PathVariable Long id) {
+        chargingService.expireReservation(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "设备故障取消预约")
+    @PostMapping("/reservations/{id}/fault-cancel")
+    public Result<Void> faultCancelReservation(@PathVariable Long id,
+                                               @RequestParam(required = false) String reason) {
+        chargingService.faultCancelReservation(id, reason);
+        return Result.success();
+    }
+
     @Operation(summary = "获取当前用户的有效预约")
     @GetMapping("/reservations/my")
     public Result<ChargingReservation> getMyActiveReservation() {
@@ -61,6 +76,12 @@ public class ChargingController {
     @PostMapping("/charging/start")
     public Result<ChargingOrder> startCharging(@RequestParam Long reservationId) {
         return Result.success(chargingService.startCharging(reservationId));
+    }
+
+    @Operation(summary = "无预约直接开始充电")
+    @PostMapping("/charging/start-direct")
+    public Result<ChargingOrder> startChargingDirectly(@RequestParam Long portId) {
+        return Result.success(chargingService.startChargingDirectly(portId));
     }
 
     @Operation(summary = "结束充电")

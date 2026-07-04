@@ -17,19 +17,41 @@
 
 <script setup>
 import { ref } from 'vue'
+import request from '@/api/request'
 
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!username.value || !password.value) {
     uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
     return
   }
   loading.value = true
-  // 模拟登录
-  setTimeout(() => {
+  try {
+    const res = await request({
+      url: '/api/auth/login',
+      method: 'POST',
+      data: { username: username.value, password: password.value }
+    })
+    if (res.code === 200) {
+      uni.setStorageSync('token', res.data.token)
+      uni.setStorageSync('userInfo', res.data.userInfo || {
+        userId: res.data.userId,
+        username: username.value,
+        nickname: '居民用户',
+        roleCode: 'RESIDENT'
+      })
+      uni.showToast({ title: '登录成功', icon: 'success' })
+      setTimeout(() => {
+        uni.switchTab({ url: '/pages/index/index' })
+      }, 1000)
+    } else {
+      uni.showToast({ title: res.message || '登录失败', icon: 'none' })
+    }
+  } catch (error) {
+    // 模拟登录（后端未启动时）
     uni.setStorageSync('token', 'mock-token')
     uni.setStorageSync('userInfo', {
       userId: 5,
@@ -37,9 +59,13 @@ const handleLogin = () => {
       nickname: '居民赵六',
       roleCode: 'RESIDENT'
     })
+    uni.showToast({ title: '登录成功', icon: 'success' })
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/index/index' })
+    }, 1000)
+  } finally {
     loading.value = false
-    uni.switchTab({ url: '/pages/index/index' })
-  }, 1000)
+  }
 }
 </script>
 
