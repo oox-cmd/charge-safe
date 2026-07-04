@@ -6,15 +6,14 @@
 
 | 文档 | 作用 | 状态 |
 |------|------|------|
-| [source-code-analysis.md](source-code-analysis.md) | 当前源码现状盘点 | 待生成 |
-| [image-reference-analysis.md](image-reference-analysis.md) | 调研截图分析总结 | 待生成 |
-| [refactor-and-architecture-plan.md](refactor-and-architecture-plan.md) | 重构与架构调整建议 | 待生成 |
-| [backend-design.md](backend-design.md) | 后端设计文档 | 待生成 |
-| [database-design.md](database-design.md) | 数据库设计文档 | 待生成 |
-| [frontend-page-design.md](frontend-page-design.md) | 前端管理端设计文档 | 待生成 |
-| [miniapp-page-design.md](miniapp-page-design.md) | 小程序居民端设计文档 | 待生成 |
-| [dashboard-visual-design.md](dashboard-visual-design.md) | 可视化大屏与3D场景设计文档 | 待生成 |
-| [next-stage-tasks.md](../tasks/next-stage-tasks.md) | 下一步开发任务拆分 | 待生成 |
+| [source-code-analysis.md](source-code-analysis.md) | 当前源码现状盘点 | ✅ 已完成 |
+| [image-reference-analysis.md](image-reference-analysis.md) | 调研截图分析总结 | ✅ 已完成 |
+| [refactor-and-architecture-plan.md](refactor-and-architecture-plan.md) | 重构与架构调整建议 | ✅ 已完成 |
+| [database-design.md](database-design.md) | 数据库设计文档 | ✅ 已完成 |
+| [frontend-page-design.md](frontend-page-design.md) | 前端管理端设计文档 | ✅ 已完成 |
+| [miniapp-page-design.md](miniapp-page-design.md) | 小程序居民端设计文档 | ✅ 已完成 |
+| [dashboard-visual-design.md](dashboard-visual-design.md) | 可视化大屏与3D场景设计文档 | ✅ 已完成 |
+| [next-stage-tasks.md](../tasks/next-stage-tasks.md) | 下一步开发任务拆分 | ✅ 已完成 |
 
 ## 文档用途说明
 
