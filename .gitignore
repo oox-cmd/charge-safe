@@ -45,3 +45,6 @@ charge-safe-miniapp/dist/
 # 大文件
 *.zip
 *.gif
+
+# 参考源码（不提交到仓库）
+docs/references/
