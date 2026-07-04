@@ -19,6 +19,21 @@ public interface ChargingService {
     void cancelReservation(Long reservationId);
 
     /**
+     * 过期取消预约（系统调用）
+     */
+    void expireReservation(Long reservationId);
+
+    /**
+     * 设备故障取消预约
+     */
+    void faultCancelReservation(Long reservationId, String reason);
+
+    /**
+     * 无预约直接开始充电（端口空闲时）
+     */
+    ChargingOrder startChargingDirectly(Long portId);
+
+    /**
      * 查询当前用户的有效预约
      */
     ChargingReservation getMyActiveReservation();

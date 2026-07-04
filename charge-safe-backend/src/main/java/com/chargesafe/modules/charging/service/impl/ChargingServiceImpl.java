@@ -68,6 +68,16 @@ public class ChargingServiceImpl implements ChargingService {
             throw new BusinessException(ResultCode.RESERVATION_ALREADY_EXIST);
         }
 
+        // 检查端口是否已有有效预约（同一端口不能同时被预约）
+        Long portActiveCount = reservationMapper.selectCount(
+                new LambdaQueryWrapper<ChargingReservation>()
+                        .eq(ChargingReservation::getPortId, dto.getPortId())
+                        .eq(ChargingReservation::getStatus, ReservationStatus.PENDING.getCode())
+        );
+        if (portActiveCount > 0) {
+            throw new BusinessException(ResultCode.PORT_NOT_IDLE.getCode(), "该端口已有有效预约");
+        }
+
         // 检查端口状态
         ChargingPort port = portMapper.selectById(dto.getPortId());
         if (port == null) {
@@ -144,6 +154,63 @@ public class ChargingServiceImpl implements ChargingService {
     }
 
     @Override
+    @Transactional
+    public void expireReservation(Long reservationId) {
+        ChargingReservation reservation = reservationMapper.selectById(reservationId);
+        if (reservation == null) {
+            throw new BusinessException(ResultCode.RESERVATION_NOT_FOUND);
+        }
+        if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
+            return; // 已处理过，无需重复操作
+        }
+
+        // 更新预约状态为过期
+        reservation.setStatus(ReservationStatus.EXPIRED.getCode());
+        reservationMapper.updateById(reservation);
+
+        // 恢复端口状态为空闲
+        ChargingPort port = portMapper.selectById(reservation.getPortId());
+        if (port != null && PortStatus.RESERVED.getCode().equals(port.getStatus())) {
+            port.setStatus(PortStatus.IDLE.getCode());
+            portMapper.updateById(port);
+        }
+
+        // 发送过期通知
+        createNotification(reservation.getUserId(), "预约过期通知",
+                "您的预约已超时自动取消。",
+                "RESERVATION", "RESERVATION", reservationId);
+    }
+
+    @Override
+    @Transactional
+    public void faultCancelReservation(Long reservationId, String reason) {
+        ChargingReservation reservation = reservationMapper.selectById(reservationId);
+        if (reservation == null) {
+            throw new BusinessException(ResultCode.RESERVATION_NOT_FOUND);
+        }
+        if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
+            return; // 已处理过
+        }
+
+        // 更新预约状态为设备故障取消
+        reservation.setStatus(ReservationStatus.FAULT_CANCELLED.getCode());
+        reservation.setCancelReason(reason != null ? reason : "设备故障自动取消");
+        reservationMapper.updateById(reservation);
+
+        // 恢复端口状态为故障
+        ChargingPort port = portMapper.selectById(reservation.getPortId());
+        if (port != null) {
+            port.setStatus(PortStatus.FAULT.getCode());
+            portMapper.updateById(port);
+        }
+
+        // 发送故障取消通知
+        createNotification(reservation.getUserId(), "预约故障取消通知",
+                "因设备故障，您的预约已被自动取消。",
+                "RESERVATION", "RESERVATION", reservationId);
+    }
+
+    @Override
     public ChargingReservation getMyActiveReservation() {
         Long userId = UserContext.getUserId();
         if (userId == null) {
@@ -214,6 +281,51 @@ public class ChargingServiceImpl implements ChargingService {
         order.setPortId(reservation.getPortId());
         order.setReservationId(reservationId);
         order.setCommunityId(reservation.getCommunityId());
+        order.setStartTime(LocalDateTime.now());
+        order.setAmount(BigDecimal.ZERO);
+        order.setStatus(OrderStatus.CHARGING.getCode());
+        orderMapper.insert(order);
+
+        return order;
+    }
+
+    @Override
+    @Transactional
+    public ChargingOrder startChargingDirectly(Long portId) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 检查端口状态
+        ChargingPort port = portMapper.selectById(portId);
+        if (port == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        if (!PortStatus.IDLE.getCode().equals(port.getStatus())) {
+            throw new BusinessException(ResultCode.PORT_NOT_IDLE.getCode(), "端口当前不可用，请先预约");
+        }
+
+        // 获取社区ID
+        ChargingDevice device = deviceMapper.selectById(port.getDeviceId());
+        Long communityId = null;
+        if (device != null) {
+            ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
+            if (parkingArea != null) {
+                communityId = parkingArea.getCommunityId();
+            }
+        }
+
+        // 更新端口状态为充电中
+        port.setStatus(PortStatus.CHARGING.getCode());
+        portMapper.updateById(port);
+
+        // 创建充电订单（无预约关联）
+        ChargingOrder order = new ChargingOrder();
+        order.setOrderNo(generateOrderNo());
+        order.setUserId(userId);
+        order.setPortId(portId);
+        order.setCommunityId(communityId);
         order.setStartTime(LocalDateTime.now());
         order.setAmount(BigDecimal.ZERO);
         order.setStatus(OrderStatus.CHARGING.getCode());

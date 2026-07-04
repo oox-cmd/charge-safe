@@ -96,7 +96,11 @@ const allMenuItems = [
   { path: '/inspection-task', title: '巡检任务', icon: 'Checked', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN', 'INSPECTOR'] },
   { path: '/hazard', title: '安全隐患', icon: 'WarnTriangleFilled', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN', 'INSPECTOR'] },
   { path: '/notification', title: '消息通知', icon: 'Bell', roles: [] },
-  { path: '/log', title: '操作日志', icon: 'Notebook', roles: ['PLATFORM_ADMIN'] }
+  { path: '/log', title: '操作日志', icon: 'Notebook', roles: ['PLATFORM_ADMIN'] },
+  { path: '/statistics', title: '统计分析', icon: 'DataAnalysis', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] },
+  { path: '/system/user', title: '用户管理', icon: 'User', roles: ['PLATFORM_ADMIN'] },
+  { path: '/system/role', title: '角色管理', icon: 'UserFilled', roles: ['PLATFORM_ADMIN'] },
+  { path: '/system/menu', title: '菜单管理', icon: 'Menu', roles: ['PLATFORM_ADMIN'] }
 ]
 
 const menuItems = computed(() => {

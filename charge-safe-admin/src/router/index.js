@@ -103,8 +103,40 @@ const routes = [
         name: 'Log',
         component: () => import('@/views/log/Index.vue'),
         meta: { title: '操作日志', icon: 'Notebook', roles: ['PLATFORM_ADMIN'] }
+      },
+      // 系统管理
+      {
+        path: 'system/user',
+        name: 'SystemUser',
+        component: () => import('@/views/system/User.vue'),
+        meta: { title: '用户管理', icon: 'User', roles: ['PLATFORM_ADMIN'] }
+      },
+      {
+        path: 'system/role',
+        name: 'SystemRole',
+        component: () => import('@/views/system/Role.vue'),
+        meta: { title: '角色管理', icon: 'UserFilled', roles: ['PLATFORM_ADMIN'] }
+      },
+      {
+        path: 'system/menu',
+        name: 'SystemMenu',
+        component: () => import('@/views/system/Menu.vue'),
+        meta: { title: '菜单管理', icon: 'Menu', roles: ['PLATFORM_ADMIN'] }
+      },
+      // 统计分析
+      {
+        path: 'statistics',
+        name: 'Statistics',
+        component: () => import('@/views/statistics/Index.vue'),
+        meta: { title: '统计分析', icon: 'DataAnalysis', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] }
       }
     ]
+  },
+  {
+    path: '/bigscreen',
+    name: 'BigScreen',
+    component: () => import('@/views/bigscreen/Index.vue'),
+    meta: { title: '可视化大屏', requiresAuth: true }
   },
   {
     path: '/:pathMatch(.*)*',
