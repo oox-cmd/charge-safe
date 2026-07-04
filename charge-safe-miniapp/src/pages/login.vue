@@ -45,7 +45,7 @@ const handleLogin = async () => {
       })
       uni.showToast({ title: '登录成功', icon: 'success' })
       setTimeout(() => {
-        uni.switchTab({ url: '/pages/index/index' })
+        uni.reLaunch({ url: '/pages/index/index' })
       }, 1000)
     } else {
       uni.showToast({ title: res.message || '登录失败', icon: 'none' })
@@ -61,7 +61,7 @@ const handleLogin = async () => {
     })
     uni.showToast({ title: '登录成功', icon: 'success' })
     setTimeout(() => {
-      uni.switchTab({ url: '/pages/index/index' })
+      uni.reLaunch({ url: '/pages/index/index' })
     }, 1000)
   } finally {
     loading.value = false

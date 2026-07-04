@@ -37,7 +37,7 @@ public class DeviceServiceImpl implements DeviceService {
     public List<ChargingDevice> listByParkingAreaId(Long parkingAreaId) {
         return deviceMapper.selectList(
                 new LambdaQueryWrapper<ChargingDevice>()
-                        .eq(ChargingDevice::getParkingAreaId, parkingAreaId)
+                        .eq(parkingAreaId != null, ChargingDevice::getParkingAreaId, parkingAreaId)
                         .eq(ChargingDevice::getStatus, 1)
         );
     }

@@ -306,6 +306,21 @@ java -jar /opt/charge-safe/charge-safe-backend.jar
 
 ## 更新日志
 
+### v0.8.1 (2026-07-04) — Bug 修复 + 清理
+
+**修复**
+- 修复访问 `localhost:8080` 根路径返回 500 的问题，新增 `NoResourceFoundException` 处理器，返回友好提示
+- 修复通知列表接口 `NullPointerException`（`isRead` 为 null 时拆箱报错）
+- 修复车棚列表 `/api/parking-areas/list` 缺少 `communityId` 参数返回 500 的问题
+- 修复设备列表 `/api/devices/list` 缺少 `parkingAreaId` 参数返回 500 的问题
+- 修复小程序登录后无法跳转首页的问题（`uni.switchTab` 改为 `uni.reLaunch`）
+- 修复 `operation_log` 表缺少 `module`、`url`、`duration` 列的问题
+- 修复 `ChargeSafeApplication` MapperScan 未包含 `common` 包导致 `OperationLogMapper` 注入失败
+
+**清理**
+- 删除误上传的 `团委组织部副部长换届答辩评委评分表_修正版.pdf` 文件
+- 从 git 历史中彻底移除该文件（git filter-branch）
+
 ### v0.8.0 (2026-07-04) — 小程序核心原型
 
 **小程序端**

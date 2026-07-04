@@ -35,7 +35,7 @@ public class NotificationServiceImpl implements NotificationService {
         LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
                 .eq(StringUtils.hasText(type), Notification::getType, type)
-                .eq(isRead != null, Notification::getIsRead, isRead ? 1 : 0)
+                .eq(isRead != null, Notification::getIsRead, Boolean.TRUE.equals(isRead) ? 1 : 0)
                 .orderByDesc(Notification::getCreatedTime);
 
         Page<Notification> result = notificationMapper.selectPage(page, wrapper);

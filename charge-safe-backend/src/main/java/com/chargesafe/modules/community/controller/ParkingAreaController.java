@@ -32,7 +32,8 @@ public class ParkingAreaController {
 
     @Operation(summary = "查询社区下所有车棚")
     @GetMapping("/list")
-    public Result<List<ParkingArea>> listByCommunityId(@RequestParam Long communityId) {
+    public Result<List<ParkingArea>> listByCommunityId(
+            @RequestParam(required = false) Long communityId) {
         return Result.success(parkingAreaService.listByCommunityId(communityId));
     }
 

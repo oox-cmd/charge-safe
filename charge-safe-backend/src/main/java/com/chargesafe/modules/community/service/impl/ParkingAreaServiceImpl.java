@@ -37,7 +37,7 @@ public class ParkingAreaServiceImpl implements ParkingAreaService {
     public List<ParkingArea> listByCommunityId(Long communityId) {
         return parkingAreaMapper.selectList(
                 new LambdaQueryWrapper<ParkingArea>()
-                        .eq(ParkingArea::getCommunityId, communityId)
+                        .eq(communityId != null, ParkingArea::getCommunityId, communityId)
                         .eq(ParkingArea::getStatus, 1)
                         .orderByDesc(ParkingArea::getCreatedTime)
         );

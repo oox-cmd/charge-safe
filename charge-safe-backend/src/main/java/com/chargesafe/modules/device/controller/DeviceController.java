@@ -32,7 +32,8 @@ public class DeviceController {
 
     @Operation(summary = "查询车棚下所有设备")
     @GetMapping("/list")
-    public Result<List<ChargingDevice>> listByParkingAreaId(@RequestParam Long parkingAreaId) {
+    public Result<List<ChargingDevice>> listByParkingAreaId(
+            @RequestParam(required = false) Long parkingAreaId) {
         return Result.success(deviceService.listByParkingAreaId(parkingAreaId));
     }
 

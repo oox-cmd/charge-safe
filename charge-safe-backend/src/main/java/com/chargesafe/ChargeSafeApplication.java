@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.chargesafe.modules.*.mapper")
+@MapperScan({"com.chargesafe.modules.*.mapper", "com.chargesafe.common"})
 public class ChargeSafeApplication {
 
     public static void main(String[] args) {

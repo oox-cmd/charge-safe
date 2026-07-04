@@ -54,6 +54,9 @@ public class PortServiceImpl implements PortService {
 
     @Override
     public List<ChargingPort> listByParkingAreaId(Long parkingAreaId) {
+        if (parkingAreaId == null) {
+            return Collections.emptyList();
+        }
         // 先查询车棚下所有设备
         List<ChargingDevice> devices = deviceMapper.selectList(
                 new LambdaQueryWrapper<ChargingDevice>()
