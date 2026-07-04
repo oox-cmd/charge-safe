@@ -6,26 +6,34 @@
 
 所有参考源码位于 `docs/references/` 目录（已加入 .gitignore，不提交到仓库）。
 
-| 项目 | 本地目录 | 来源 | 调研人 |
-|------|---------|------|--------|
-| vue-vben-admin | `vue-vben-admin/` | GitHub | - |
-| element-plus | `element-plus/` | GitHub | - |
-| RuoYi-Vue | `RuoYi-Vue/` | GitHub | 金昊然 |
-| vue-element-plus-admin | `vue-element-plus-admin/` | GitHub | 吴诗颖 |
-| vue3-management-system | `vue3-management-system/` | GitHub | 吴诗颖 |
-| ev-charging-platform | `ev-charging-platform/` | GitHub | 吴诗颖 |
-| es-big-screen | `es-big-screen/` | GitHub | 张健 |
-| IofTV-Screen-Vue3 | `IofTV-Screen-Vue3/` | GitHub | 张健 |
-| vue-data-visualization | `vue-data-visualization/` | GitHub | 张健 |
-| BigDataView | `BigDataView/` | GitHub | 张健 |
-| smartPark-3D | `smartPark-3D/` | GitHub | 张健 |
-| 3d-datacenter | `3d-datacenter/` | GitHub | 张健 |
-| Vue3Echarts | `Vue3Echarts/` | GitHub | 张健 |
-| JeecgBoot | `JeecgBoot/` | GitHub | 金昊然 |
-| Apache DolphinScheduler | `dolphinscheduler/` | GitHub | 金昊然 |
-| OpenRemote | `openremote/` | GitHub | 金昊然 |
-| EV Charging Station Management | `electric-vehicle-charging-station-management-system/` | GitHub | 金昊然 |
-| vue-echarts | `vue-echarts/` | GitHub | 金昊然 |
+### 完整拉取的项目
+
+| 项目 | 本地目录 | 来源 | 调研人 | 说明 |
+|------|---------|------|--------|------|
+| vue-vben-admin | `vue-vben-admin/` | GitHub | - | Vue3 后台管理模板 |
+| element-plus | `element-plus/` | GitHub | - | Element Plus 官方源码 |
+| RuoYi-Vue | `RuoYi-Vue/` | GitHub | 金昊然 | RBAC 权限管理系统 |
+| vue-element-plus-admin | `vue-element-plus-admin/` | GitHub | 吴诗颖 | Element Plus Admin 集成方案 |
+| vue3-management-system | `vue3-management-system/` | GitHub | 吴诗颖 | 轻量级 Vue3 管理系统 |
+| ev-charging-platform | `ev-charging-platform/` | GitHub | 吴诗颖 | 充电桩平台数据库设计 |
+| es-big-screen | `es-big-screen/` | GitHub | 张健 | 大屏可视化模板 |
+| IofTV-Screen-Vue3 | `IofTV-Screen-Vue3/` | GitHub | 张健 | 大数据可视化模板 |
+| vue-data-visualization | `vue-data-visualization/` | GitHub | 张健 | 数据可视化编辑器 |
+| smartPark-3D | `smartPark-3D/` | GitHub | 张健 | 智慧园区 3D 可视化 |
+| 3d-datacenter | `3d-datacenter/` | GitHub | 张健 | 数据中心 3D 可视化 |
+| Vue3Echarts | `Vue3Echarts/` | GitHub | 张健 | Vue3 ECharts 大屏 |
+| EV Charging Station Management | `electric-vehicle-charging-station-management-system/` | GitHub | 金昊然 | 充电桩管理系统 |
+| vue-echarts | `vue-echarts/` | GitHub | 金昊然 | Vue ECharts 封装 |
+| DashBoard | `DashBoard/` | Gitee | 吴诗颖 | 仪表盘设计器 |
+
+### 只拉取 README 的大型项目
+
+| 项目 | 本地目录 | 来源 | 调研人 | 说明 |
+|------|---------|------|--------|------|
+| JeecgBoot | `JeecgBoot/` | GitHub | 金昊然 | 只有 README，项目太大 |
+| Apache DolphinScheduler | `dolphinscheduler/` | GitHub | 金昊然 | 只有 README，项目太大 |
+| OpenRemote | `openremote/` | GitHub | 金昊然 | 只有 README，项目太大 |
+| BigDataView | `BigDataView/` | GitHub | 张健 | 只有 README，项目太大 |
 
 **未拉取的非 GitHub 资料**（在线文档，无法本地拉取）：
 
