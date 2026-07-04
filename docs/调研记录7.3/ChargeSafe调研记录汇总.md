@@ -2,6 +2,54 @@
 
 > 本文件汇总了三位组员的调研记录，包含前端框架、可视化大屏、数据库设计、权限管理、工单流程、3D场景等多个方向的参考资料。
 
+## 已拉取到本地的参考源码
+
+所有参考源码位于 `docs/references/` 目录（已加入 .gitignore，不提交到仓库）。
+
+| 项目 | 本地目录 | 来源 | 调研人 |
+|------|---------|------|--------|
+| vue-vben-admin | `vue-vben-admin/` | GitHub | - |
+| element-plus | `element-plus/` | GitHub | - |
+| RuoYi-Vue | `RuoYi-Vue/` | GitHub | 金昊然 |
+| vue-element-plus-admin | `vue-element-plus-admin/` | GitHub | 吴诗颖 |
+| vue3-management-system | `vue3-management-system/` | GitHub | 吴诗颖 |
+| ev-charging-platform | `ev-charging-platform/` | GitHub | 吴诗颖 |
+| es-big-screen | `es-big-screen/` | GitHub | 张健 |
+| IofTV-Screen-Vue3 | `IofTV-Screen-Vue3/` | GitHub | 张健 |
+| vue-data-visualization | `vue-data-visualization/` | GitHub | 张健 |
+| BigDataView | `BigDataView/` | GitHub | 张健 |
+| smartPark-3D | `smartPark-3D/` | GitHub | 张健 |
+| 3d-datacenter | `3d-datacenter/` | GitHub | 张健 |
+| Vue3Echarts | `Vue3Echarts/` | GitHub | 张健 |
+| JeecgBoot | `JeecgBoot/` | GitHub | 金昊然 |
+| Apache DolphinScheduler | `dolphinscheduler/` | GitHub | 金昊然 |
+| OpenRemote | `openremote/` | GitHub | 金昊然 |
+| EV Charging Station Management | `electric-vehicle-charging-station-management-system/` | GitHub | 金昊然 |
+| vue-echarts | `vue-echarts/` | GitHub | 金昊然 |
+
+**未拉取的非 GitHub 资料**（在线文档，无法本地拉取）：
+
+| 资料 | 链接 | 来源 | 调研人 |
+|------|------|------|--------|
+| 绿能充电数据库设计 | https://juejin.cn/post/7638517197009092623 | 掘金 | 吴诗颖 |
+| 充电站平台数据库应用 | https://cnevcharger.com/zh-CN/... | 专业网站 | 吴诗颖 |
+| 物业报修系统 | https://blog.csdn.net/... | CSDN | 吴诗颖 |
+| FeelDesk 工单系统 | https://www.feeldesk.cn/news/1066 | FeelDesk | 吴诗颖 |
+| 禅道工单系统 | https://www.zentao.net/book/zentaopms/ticket-960.html | 禅道 | 吴诗颖 |
+| 数字孪生智慧园区 | https://segmentfault.com/a/... | SegmentFault | 吴诗颖 |
+| Three.js 智慧园区入门 | https://blog.csdn.net/... | CSDN | 吴诗颖 |
+| GCPAAS DashBoard | https://gitee.com/gcpaas/DashBoard | Gitee | 吴诗颖 |
+| 充电管理系统公众号 | https://mp.weixin.qq.com/... | 微信公众号 | 吴诗颖 |
+| 微信小程序报修系统 | https://blog.csdn.net/... | CSDN | 吴诗颖 |
+| Apache ECharts 官方示例 | https://echarts.apache.org/examples/ | 官网 | 张健 |
+| 智慧园区 3D 场景 | https://threejs3d.com/examples/yuanquan | Three3D | 张健 |
+| ThingJS 智慧园区 | https://www.thingjs.com/guide/intelligentCampus/ | ThingJS | 张健 |
+| 图扑智慧充电桩 | https://www.hightopo.com/blog/3922.html | 图扑 | 张健 |
+| 图扑光储充一体化 | https://www.hightopo.com/blog/4631.html | 图扑 | 张健 |
+| 素材来源 | Pexels / Unsplash / Pixabay / Wikimedia Commons | 图片网站 | 张健 |
+| 有来后台模板在线预览 | https://vue.youlai.tech | 在线演示 | 吴诗颖 |
+| vue-element-plus-admin 文档 | https://element-plus-admin-doc.cn | 文档站 | 吴诗颖 |
+
 ---
 
 # 一、吴诗颖 - 调研记录
