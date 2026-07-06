@@ -23,6 +23,10 @@ public class Community {
 
     private String contactPhone;
 
+    private Double lat;
+
+    private Double lng;
+
     /**
      * 状态: 0-停用 1-启用
      */
