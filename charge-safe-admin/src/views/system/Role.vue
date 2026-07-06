@@ -1,67 +1,66 @@
 <template>
   <div class="role-page">
-    <!-- 查询表单 -->
-    <el-card class="query-card">
-      <el-form :model="queryParams" inline>
-        <el-form-item label="角色名称">
-          <el-input v-model="queryParams.roleName" placeholder="请输入角色名称" clearable @keyup.enter="fetchData" />
-        </el-form-item>
-        <el-form-item label="角色编码">
-          <el-input v-model="queryParams.roleCode" placeholder="请输入角色编码" clearable @keyup.enter="fetchData" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="全部" clearable>
-            <el-option label="启用" :value="1" />
-            <el-option label="停用" :value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="fetchData">查询</el-button>
-          <el-button @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <!-- 页面标题 -->
+    <CsPageHeader title="角色管理" description="管理系统安全控制角色，为角色分配对应的系统菜单和按钮访问权限。" />
+
+    <!-- 搜索面板 -->
+    <CsSearchPanel :model="queryParams" @search="fetchData" @reset="resetQuery">
+      <el-form-item label="角色名称">
+        <el-input v-model="queryParams.roleName" placeholder="请输入角色名称" clearable @keyup.enter="fetchData" />
+      </el-form-item>
+      <el-form-item label="角色编码">
+        <el-input v-model="queryParams.roleCode" placeholder="请输入角色编码" clearable @keyup.enter="fetchData" />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 150px">
+          <el-option label="启用" :value="1" />
+          <el-option label="停用" :value="0" />
+        </el-select>
+      </el-form-item>
+    </CsSearchPanel>
 
     <!-- 数据表格 -->
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>角色列表</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>新增角色
-          </el-button>
-        </div>
-      </template>
+    <el-card shadow="never">
+      <CsTableToolbar @refresh="fetchData">
+        <template #left>
+          <el-button v-if="hasPermission('system:role:add')" type="primary" icon="Plus" @click="handleAdd">新增角色</el-button>
+        </template>
+      </CsTableToolbar>
 
-      <el-table :data="tableData" v-loading="loading" stripe>
-        <el-table-column prop="roleName" label="角色名称" width="150" />
-        <el-table-column prop="roleCode" label="角色编码" width="150" />
-        <el-table-column prop="description" label="描述" />
-        <el-table-column prop="status" label="状态" width="80">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+        <el-table-column prop="roleName" label="角色名称" width="180" />
+        <el-table-column prop="roleCode" label="角色编码" width="180" />
+        <el-table-column prop="description" label="描述" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdTime" label="创建时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="createdTime" label="创建时间" width="180" />
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="warning" link @click="handleAssignMenus(row)">分配菜单</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="hasPermission('system:role:edit')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="hasPermission('system:role:assign-menu')" type="primary" link icon="Setting" @click="handleAssignMenus(row)">菜单</el-button>
+            <CsConfirmButton
+              v-if="hasPermission('system:role:delete')"
+              :title="`确定要删除角色 【${row.roleName}】 吗？此操作将清除对应角色的所有菜单绑定！`"
+              buttonType="danger"
+              type="danger"
+              @confirm="handleDelete(row)"
+            >
+              删除
+            </CsConfirmButton>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <CsPagination
         v-model:current-page="queryParams.page"
         v-model:page-size="queryParams.size"
         :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
         @change="fetchData"
-        style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
 
@@ -102,6 +101,7 @@
             node-key="id"
             :default-checked-keys="checkedMenuIds"
             :default-expand-all="true"
+            style="width: 100%"
           />
         </el-form-item>
       </el-form>
@@ -115,8 +115,16 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import CsPagination from '@/components/CsPagination.vue'
+import { ElMessage } from 'element-plus'
 import { getRoles, createRole, updateRole, deleteRole, assignRoleMenus, getMenuTree } from '@/api/system'
+import { usePermission } from '@/composables/usePermission'
+import CsPageHeader from '@/components/CsPageHeader.vue'
+import CsSearchPanel from '@/components/CsSearchPanel.vue'
+import CsTableToolbar from '@/components/CsTableToolbar.vue'
+import CsConfirmButton from '@/components/CsConfirmButton.vue'
+
+const { hasPermission } = usePermission()
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -259,14 +267,11 @@ const handleAssignMenusSubmit = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定要删除角色 "${row.roleName}" 吗？`, '提示', { type: 'warning' })
     await deleteRole(row.id)
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-    }
+    console.error('删除失败:', error)
   }
 }
 
@@ -276,12 +281,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.query-card {
-  margin-bottom: 16px;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 </style>

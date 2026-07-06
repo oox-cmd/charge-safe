@@ -1,34 +1,28 @@
 <template>
   <div class="menu-page">
-    <!-- 查询表单 -->
-    <el-card class="query-card">
-      <el-form :model="queryParams" inline>
-        <el-form-item label="菜单名称">
-          <el-input v-model="queryParams.menuName" placeholder="请输入菜单名称" clearable @keyup.enter="fetchData" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="全部" clearable>
-            <el-option label="启用" :value="1" />
-            <el-option label="停用" :value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="fetchData">查询</el-button>
-          <el-button @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <!-- 页面标题 -->
+    <CsPageHeader title="菜单管理" description="配置系统路由目录、页面菜单入口及对应的按钮权限控制规则。" />
+
+    <!-- 搜索面板 -->
+    <CsSearchPanel :model="queryParams" @search="fetchData" @reset="resetQuery">
+      <el-form-item label="菜单名称">
+        <el-input v-model="queryParams.menuName" placeholder="请输入菜单名称" clearable @keyup.enter="fetchData" />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 150px">
+          <el-option label="启用" :value="1" />
+          <el-option label="停用" :value="0" />
+        </el-select>
+      </el-form-item>
+    </CsSearchPanel>
 
     <!-- 数据表格 -->
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>菜单列表</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>新增菜单
-          </el-button>
-        </div>
-      </template>
+    <el-card shadow="never">
+      <CsTableToolbar @refresh="fetchData">
+        <template #left>
+          <el-button v-if="hasPermission('system:menu:add')" type="primary" icon="Plus" @click="handleAdd">新增菜单</el-button>
+        </template>
+      </CsTableToolbar>
 
       <el-table
         :data="tableData"
@@ -37,6 +31,7 @@
         :tree-props="{ children: 'children' }"
         default-expand-all
         stripe
+        style="width: 100%"
       >
         <el-table-column prop="menuName" label="菜单名称" min-width="200" />
         <el-table-column prop="menuType" label="类型" width="100">
@@ -46,22 +41,30 @@
             <el-tag v-else-if="row.menuType === 'BUTTON'" type="warning">按钮</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="path" label="路径" width="150" />
-        <el-table-column prop="component" label="组件" width="150" />
-        <el-table-column prop="permission" label="权限标识" width="150" />
-        <el-table-column prop="sortOrder" label="排序" width="80" />
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="path" label="路径" width="180" />
+        <el-table-column prop="component" label="组件" width="180" />
+        <el-table-column prop="permission" label="权限标识" width="180" />
+        <el-table-column prop="sortOrder" label="排序" width="90" align="center" />
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleAddChild(row)">新增子菜单</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="hasPermission('system:menu:edit')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="hasPermission('system:menu:add')" type="primary" link icon="Plus" @click="handleAddChild(row)">子菜单</el-button>
+            <CsConfirmButton
+              v-if="hasPermission('system:menu:delete')"
+              :title="`确定要删除菜单 【${row.menuName}】 吗？删除该菜单会导致下级子菜单或按钮一并被删除！`"
+              buttonType="danger"
+              type="danger"
+              @confirm="handleDelete(row)"
+            >
+              删除
+            </CsConfirmButton>
           </template>
         </el-table-column>
       </el-table>
@@ -78,6 +81,7 @@
             check-strictly
             clearable
             placeholder="请选择上级菜单（留空为顶级）"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="菜单类型" prop="menuType">
@@ -100,7 +104,7 @@
           <el-input v-model="form.permission" placeholder="如 system:user:add" />
         </el-form-item>
         <el-form-item label="排序" prop="sortOrder">
-          <el-input-number v-model="form.sortOrder" :min="0" :max="9999" />
+          <el-input-number v-model="form.sortOrder" :min="0" :max="9999" style="width: 100%" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
@@ -116,8 +120,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMenus, getMenuTree, createMenu, updateMenu, deleteMenu } from '@/api/system'
+import { ElMessage } from 'element-plus'
+import { getMenuTree, createMenu, updateMenu, deleteMenu } from '@/api/system'
+import { usePermission } from '@/composables/usePermission'
+import CsPageHeader from '@/components/CsPageHeader.vue'
+import CsSearchPanel from '@/components/CsSearchPanel.vue'
+import CsTableToolbar from '@/components/CsTableToolbar.vue'
+import CsConfirmButton from '@/components/CsConfirmButton.vue'
+
+const { hasPermission } = usePermission()
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -154,7 +165,6 @@ const fetchData = async () => {
   try {
     const res = await getMenuTree()
     if (res.code === 200) {
-      // 过滤启用的菜单
       tableData.value = filterMenuTree(res.data, queryParams)
     }
   } catch (error) {
@@ -193,7 +203,6 @@ const fetchMenuTreeOptions = async () => {
   try {
     const res = await getMenuTree()
     if (res.code === 200) {
-      // 添加虚拟根节点
       menuTreeOptions.value = [{ id: 0, menuName: '顶级菜单', children: res.data }]
     }
   } catch (error) {
@@ -279,14 +288,11 @@ const handleSubmit = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定要删除菜单 "${row.menuName}" 吗？删除后子菜单也会被删除。`, '提示', { type: 'warning' })
     await deleteMenu(row.id)
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-    }
+    console.error('删除失败:', error)
   }
 }
 
@@ -296,12 +302,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.query-card {
-  margin-bottom: 16px;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 </style>

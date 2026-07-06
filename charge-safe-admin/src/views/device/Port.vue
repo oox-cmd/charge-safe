@@ -1,47 +1,44 @@
 <template>
   <div class="port-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>端口管理</span>
-          <el-button type="primary" @click="handleBatchAdd">
-            <el-icon><Plus /></el-icon>批量创建端口
-          </el-button>
-        </div>
-      </template>
+    <!-- 页面标题 -->
+    <CsPageHeader title="端口管理" description="对充电桩端口进行批量创建、状态变更等运维管理操作。" />
 
-      <el-form :inline="true" :model="queryParams" style="margin-bottom: 20px">
-        <el-form-item label="设备">
-          <el-select v-model="queryParams.deviceId" placeholder="选择设备" clearable style="width: 200px">
-            <el-option v-for="item in devices" :key="item.id" :label="item.deviceName" :value="item.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="选择状态" clearable style="width: 150px">
-            <el-option v-for="item in portStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="fetchData">查询</el-button>
-        </el-form-item>
-      </el-form>
+    <!-- 搜索面板 -->
+    <CsSearchPanel :model="queryParams" @search="fetchData" @reset="resetQuery">
+      <el-form-item label="设备">
+        <el-select v-model="queryParams.deviceId" placeholder="选择设备" clearable style="width: 200px">
+          <el-option v-for="item in devices" :key="item.id" :label="item.deviceName" :value="item.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="queryParams.status" placeholder="选择状态" clearable style="width: 150px">
+          <el-option v-for="item in portStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+    </CsSearchPanel>
 
-      <el-table :data="tableData" v-loading="loading" stripe>
+    <!-- 数据表格 -->
+    <el-card shadow="never">
+      <CsTableToolbar @refresh="fetchData">
+        <template #left>
+          <el-button type="primary" icon="Plus" @click="handleBatchAdd">批量创建端口</el-button>
+        </template>
+      </CsTableToolbar>
+
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="portName" label="端口名称" />
         <el-table-column prop="deviceName" label="所属设备" />
-        <el-table-column prop="portNumber" label="端口号" width="80" />
-        <el-table-column prop="powerRating" label="额定功率(W)" width="100" />
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="portNumber" label="端口号" width="100" />
+        <el-table-column prop="powerRating" label="额定功率(W)" width="120" />
+        <el-table-column prop="status" label="状态" width="130">
           <template #default="{ row }">
-            <el-tag :type="getPortStatusType(row.status)">
-              {{ getPortStatusText(row.status) }}
-            </el-tag>
+            <CsStatusTag :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-dropdown @command="(cmd) => handleStatusChange(row, cmd)">
+            <el-dropdown v-permission="'port:update-status'" @command="(cmd) => handleStatusChange(row, cmd)">
               <el-button type="primary" link>
                 修改状态 <el-icon><ArrowDown /></el-icon>
               </el-button>
@@ -59,14 +56,11 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <CsPagination
         v-model:current-page="queryParams.page"
         v-model:page-size="queryParams.size"
         :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next"
         @change="fetchData"
-        style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
 
@@ -92,10 +86,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import CsPagination from '@/components/CsPagination.vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPorts, updatePortStatus, batchCreatePorts } from '@/api/device'
 import { getDeviceList } from '@/api/device'
+import CsPageHeader from '@/components/CsPageHeader.vue'
+import CsSearchPanel from '@/components/CsSearchPanel.vue'
+import CsTableToolbar from '@/components/CsTableToolbar.vue'
+import CsStatusTag from '@/components/CsStatusTag.vue'
 
 const route = useRoute()
 const loading = ref(false)
@@ -133,34 +132,6 @@ const batchRules = {
   count: [{ required: true, message: '请输入数量', trigger: 'blur' }]
 }
 
-const getPortStatusType = (status) => {
-  const map = {
-    'IDLE': 'success',
-    'RESERVED': 'primary',
-    'CHARGING': 'warning',
-    'FAULT': 'danger',
-    'MAINTENANCE': 'info',
-    'DISABLED': 'info',
-    'OFFLINE': 'info'
-  }
-  return map[status] || 'info'
-}
-
-const getPortStatusText = (status) => {
-  const map = {
-    'IDLE': '空闲',
-    'RESERVED': '已预约',
-    'CHARGING': '充电中',
-    'COMPLETED_WAITING_PICKUP': '待取车',
-    'OVERTIME_OCCUPIED': '超时占用',
-    'FAULT': '故障',
-    'MAINTENANCE': '维修中',
-    'DISABLED': '停用',
-    'OFFLINE': '离线'
-  }
-  return map[status] || status
-}
-
 const fetchDevices = async () => {
   try {
     const res = await getDeviceList()
@@ -187,8 +158,22 @@ const fetchData = async () => {
   }
 }
 
+const resetQuery = () => {
+  queryParams.deviceId = route.query.deviceId ? Number(route.query.deviceId) : null
+  queryParams.status = null
+  queryParams.page = 1
+  fetchData()
+}
+
 const handleStatusChange = async (row, status) => {
-  const statusText = getPortStatusText(status)
+  const map = {
+    'IDLE': '空闲',
+    'DISABLED': '停用',
+    'OFFLINE': '离线',
+    'FAULT': '故障',
+    'MAINTENANCE': '维修中'
+  }
+  const statusText = map[status] || status
   try {
     await ElMessageBox.confirm(`确定要将端口状态修改为"${statusText}"吗？`, '提示', { type: 'warning' })
     await updatePortStatus(row.id, status)
@@ -234,9 +219,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 </style>

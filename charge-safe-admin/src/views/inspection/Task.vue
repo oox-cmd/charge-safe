@@ -1,42 +1,58 @@
 <template>
   <div class="task-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>巡检任务</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>创建任务
-          </el-button>
-        </div>
-      </template>
+    <!-- 页面标题 -->
+    <CsPageHeader title="巡检任务" description="创建和派发日常安全巡检任务，并跟踪记录巡检人员的执行进度。" />
 
-      <el-table :data="tableData" v-loading="loading" stripe>
+    <!-- 数据表格 -->
+    <el-card shadow="never">
+      <CsTableToolbar @refresh="fetchData">
+        <template #left>
+          <el-button v-permission="'inspection:task:add'" type="primary" icon="Plus" @click="handleAdd">创建任务</el-button>
+        </template>
+      </CsTableToolbar>
+
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="taskName" label="任务名称" />
-        <el-table-column prop="inspectorName" label="巡检人员" />
+        <el-table-column prop="inspectorName" label="巡检人员" width="120" />
         <el-table-column prop="planStartTime" label="计划开始" width="180" />
         <el-table-column prop="planEndTime" label="计划结束" width="180" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
+            <CsStatusTag :status="row.status" module="inspection_task" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" type="primary" link @click="handleStart(row)">开始巡检</el-button>
-            <el-button v-if="row.status === 'IN_PROGRESS' || row.status === 'ABNORMAL'" type="success" link @click="handleComplete(row)">完成</el-button>
+            <CsConfirmButton
+              v-if="row.status === 'PENDING'"
+              v-permission="'inspection:task:start'"
+              title="确定要对该任务开始巡检吗？"
+              buttonType="primary"
+              type="primary"
+              @confirm="handleStart(row)"
+            >
+              开始巡检
+            </CsConfirmButton>
+            <CsConfirmButton
+              v-if="row.status === 'IN_PROGRESS' || row.status === 'ABNORMAL'"
+              v-permission="'inspection:task:complete'"
+              title="确定确认结束并完成本项巡检任务吗？"
+              buttonType="success"
+              type="success"
+              @confirm="handleComplete(row)"
+            >
+              完成
+            </CsConfirmButton>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <CsPagination
         v-model:current-page="queryParams.page"
         v-model:page-size="queryParams.size"
         :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
         @change="fetchData"
-        style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
 
@@ -53,11 +69,11 @@
         </el-form-item>
         <el-form-item label="巡检人员" prop="inspectorId">
           <el-select v-model="form.inspectorId" placeholder="选择巡检人员" style="width: 100%">
-            <el-option v-for="item in inspectors" :key="item.id" :label="item.nickname" :value="item.id" />
+            <el-option v-for="item in inspectors" :key="item.id" :label="item.nickname || item.username" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="任务描述" prop="taskDesc">
-          <el-input v-model="form.taskDesc" type="textarea" placeholder="请输入任务描述" />
+          <el-input v-model="form.taskDesc" type="textarea" :rows="3" placeholder="请输入任务具体描述或要求" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -70,9 +86,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import CsPagination from '@/components/CsPagination.vue'
+import { ElMessage } from 'element-plus'
 import { getInspectionTasks, createInspectionTask, startInspectionTask, completeInspectionTask } from '@/api/inspection'
 import { getCommunityList } from '@/api/community'
+import { getUsers } from '@/api/system'
+import CsPageHeader from '@/components/CsPageHeader.vue'
+import CsTableToolbar from '@/components/CsTableToolbar.vue'
+import CsStatusTag from '@/components/CsStatusTag.vue'
+import CsConfirmButton from '@/components/CsConfirmButton.vue'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -81,9 +103,7 @@ const total = ref(0)
 const dialogVisible = ref(false)
 const formRef = ref(null)
 const communities = ref([])
-const inspectors = ref([
-  { id: 4, nickname: '巡检人员王五' }
-])
+const inspectors = ref([])
 
 const queryParams = reactive({
   page: 1,
@@ -103,21 +123,24 @@ const rules = {
   inspectorId: [{ required: true, message: '请选择巡检人员', trigger: 'change' }]
 }
 
-const getStatusType = (status) => {
-  const map = { 'PENDING': 'info', 'IN_PROGRESS': 'warning', 'COMPLETED': 'success', 'ABNORMAL': 'danger', 'OVERDUE': 'danger' }
-  return map[status] || 'info'
-}
-
-const getStatusText = (status) => {
-  const map = { 'PENDING': '待执行', 'IN_PROGRESS': '执行中', 'COMPLETED': '已完成', 'ABNORMAL': '发现异常', 'OVERDUE': '已逾期' }
-  return map[status] || status
-}
-
 const fetchCommunities = async () => {
   try {
     const res = await getCommunityList()
     if (res.code === 200) communities.value = res.data
-  } catch (error) {}
+  } catch (error) {
+    console.error('获取社区失败:', error)
+  }
+}
+
+const fetchInspectors = async () => {
+  try {
+    const res = await getUsers({ roleCode: 'INSPECTOR', page: 1, size: 100 })
+    if (res.code === 200) {
+      inspectors.value = res.data.records || []
+    }
+  } catch (error) {
+    console.error('获取巡检人员失败:', error)
+  }
 }
 
 const fetchData = async () => {
@@ -160,36 +183,30 @@ const handleSubmit = async () => {
 
 const handleStart = async (row) => {
   try {
-    await ElMessageBox.confirm('确定要开始巡检吗？', '提示', { type: 'warning' })
     await startInspectionTask(row.id)
     ElMessage.success('已开始巡检')
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') console.error('操作失败:', error)
+    console.error('操作失败:', error)
   }
 }
 
 const handleComplete = async (row) => {
   try {
-    await ElMessageBox.confirm('确定要完成巡检吗？', '提示', { type: 'warning' })
     await completeInspectionTask(row.id)
     ElMessage.success('巡检已完成')
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') console.error('操作失败:', error)
+    console.error('操作失败:', error)
   }
 }
 
 onMounted(() => {
   fetchCommunities()
+  fetchInspectors()
   fetchData()
 })
 </script>
 
 <style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 </style>

@@ -32,14 +32,11 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <CsPagination
         v-model:current-page="queryParams.page"
         v-model:page-size="queryParams.size"
         :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
         @change="fetchData"
-        style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
   </div>
@@ -47,6 +44,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import CsPagination from '@/components/CsPagination.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getNotifications, markAsRead, markAllAsRead } from '@/api/notification'
 

@@ -1,56 +1,87 @@
 <template>
   <div class="statistics-page">
     <!-- 顶部统计卡片 -->
-    <el-row :gutter="16" class="stat-cards">
-      <el-col :span="3" v-for="card in statCards" :key="card.label">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-card-content">
-            <div class="stat-value">{{ card.value }}</div>
-            <div class="stat-label">{{ card.label }}</div>
+    <el-row :gutter="20" class="stat-cards">
+      <el-col :span="6" v-for="card in statCards.slice(0, 4)" :key="card.label">
+        <el-card class="saas-stat-card">
+          <div class="stat-content">
+            <div class="stat-info">
+              <div class="stat-label">{{ card.label }}</div>
+              <div class="stat-value">{{ card.value }}</div>
+            </div>
+            <div class="stat-icon-wrapper" :style="{ background: card.bgColor }">
+              <el-icon :size="24" :style="{ color: card.color }">
+                <component :is="card.icon" />
+              </el-icon>
+            </div>
           </div>
-          <el-icon :size="40" class="stat-icon" :style="{ color: card.color }">
-            <component :is="card.icon" />
-          </el-icon>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20" class="stat-cards" style="margin-top: 20px;">
+      <el-col :span="6" v-for="card in statCards.slice(4, 8)" :key="card.label">
+        <el-card class="saas-stat-card">
+          <div class="stat-content">
+            <div class="stat-info">
+              <div class="stat-label">{{ card.label }}</div>
+              <div class="stat-value">{{ card.value }}</div>
+            </div>
+            <div class="stat-icon-wrapper" :style="{ background: card.bgColor }">
+              <el-icon :size="24" :style="{ color: card.color }">
+                <component :is="card.icon" />
+              </el-icon>
+            </div>
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 图表区域 -->
-    <el-row :gutter="16">
+    <el-row :gutter="20" style="margin-top: 20px;">
       <!-- 端口状态环形图 -->
       <el-col :span="8">
-        <el-card header="端口状态分布">
-          <div ref="portStatusChartRef" style="height: 350px"></div>
+        <el-card class="saas-chart-card" shadow="never">
+          <template #header><div class="card-title">端口状态分布</div></template>
+          <div v-if="dashboardData.totalPorts > 0" ref="portStatusChartRef" style="height: 350px"></div>
+          <el-empty v-else description="暂无端口数据" :image-size="120" style="height: 350px" />
         </el-card>
       </el-col>
 
       <!-- 订单趋势折线图 -->
       <el-col :span="16">
-        <el-card header="订单趋势（近7天）">
-          <div ref="orderTrendChartRef" style="height: 350px"></div>
+        <el-card class="saas-chart-card" shadow="never">
+          <template #header><div class="card-title">订单趋势（近7天）</div></template>
+          <div v-if="hasOrderData" ref="orderTrendChartRef" style="height: 350px"></div>
+          <el-empty v-else description="暂无订单趋势数据" :image-size="120" style="height: 350px" />
         </el-card>
       </el-col>
     </el-row>
 
-    <el-row :gutter="16" style="margin-top: 16px">
+    <el-row :gutter="20" style="margin-top: 20px; padding-bottom: 20px;">
       <!-- 车棚利用率柱状图 -->
-      <el-col :span="12">
-        <el-card header="车棚利用率">
-          <div ref="parkingUsageChartRef" style="height: 350px"></div>
+      <el-col :span="10">
+        <el-card class="saas-chart-card" shadow="never">
+          <template #header><div class="card-title">车棚利用率</div></template>
+          <div v-if="hasParkingData" ref="parkingUsageChartRef" style="height: 350px"></div>
+          <el-empty v-else description="暂无车棚数据" :image-size="120" style="height: 350px" />
         </el-card>
       </el-col>
 
       <!-- 工单状态柱状图 -->
-      <el-col :span="6">
-        <el-card header="工单状态">
-          <div ref="repairChartRef" style="height: 350px"></div>
+      <el-col :span="7">
+        <el-card class="saas-chart-card" shadow="never">
+          <template #header><div class="card-title">工单状态</div></template>
+          <div v-if="hasRepairData" ref="repairChartRef" style="height: 350px"></div>
+          <el-empty v-else description="暂无工单记录" :image-size="120" style="height: 350px" />
         </el-card>
       </el-col>
 
       <!-- 隐患状态饼图 -->
-      <el-col :span="6">
-        <el-card header="安全隐患状态">
-          <div ref="hazardChartRef" style="height: 350px"></div>
+      <el-col :span="7">
+        <el-card class="saas-chart-card" shadow="never">
+          <template #header><div class="card-title">安全隐患状态</div></template>
+          <div v-if="hasHazardData" ref="hazardChartRef" style="height: 350px"></div>
+          <el-empty v-else description="暂无隐患记录" :image-size="120" style="height: 350px" />
         </el-card>
       </el-col>
     </el-row>
@@ -58,7 +89,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import {
   getDashboard, getPortStatus, getOrderTrend,
@@ -79,212 +110,175 @@ let parkingUsageChart = null
 let repairChart = null
 let hazardChart = null
 
-// 统计数据
+// 数据状态
 const dashboardData = ref({})
+const hasOrderData = ref(false)
+const hasParkingData = ref(false)
+const hasRepairData = ref(false)
+const hasHazardData = ref(false)
+
+// 现代调色盘
+const colorPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
 
 // 顶部卡片数据
 const statCards = computed(() => [
-  { label: '端口总数', value: dashboardData.value.totalPorts || 0, icon: 'Connection', color: '#409eff' },
-  { label: '空闲端口', value: dashboardData.value.idlePorts || 0, icon: 'CircleCheck', color: '#67c23a' },
-  { label: '充电中', value: dashboardData.value.chargingPorts || 0, icon: 'Lightning', color: '#e6a23c' },
-  { label: '故障端口', value: dashboardData.value.faultPorts || 0, icon: 'Warning', color: '#f56c6c' },
-  { label: '今日预约', value: dashboardData.value.todayReservations || 0, icon: 'Clock', color: '#409eff' },
-  { label: '今日订单', value: dashboardData.value.todayOrders || 0, icon: 'Document', color: '#67c23a' },
-  { label: '待处理工单', value: dashboardData.value.pendingTickets || 0, icon: 'Tickets', color: '#e6a23c' },
-  { label: '待整改隐患', value: dashboardData.value.pendingHazards || 0, icon: 'WarnTriangleFilled', color: '#f56c6c' }
+  { label: '端口总数', value: dashboardData.value.totalPorts || 0, icon: 'Connection', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)' },
+  { label: '空闲可用', value: dashboardData.value.idlePorts || 0, icon: 'CircleCheck', color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)' },
+  { label: '正在充电', value: dashboardData.value.chargingPorts || 0, icon: 'Lightning', color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)' },
+  { label: '设备故障', value: dashboardData.value.faultPorts || 0, icon: 'Warning', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)' },
+  { label: '今日预约', value: dashboardData.value.todayReservations || 0, icon: 'Clock', color: '#8b5cf6', bgColor: 'rgba(139, 92, 246, 0.1)' },
+  { label: '今日订单', value: dashboardData.value.todayOrders || 0, icon: 'Document', color: '#06b6d4', bgColor: 'rgba(6, 182, 212, 0.1)' },
+  { label: '待处理工单', value: dashboardData.value.pendingTickets || 0, icon: 'Tickets', color: '#f97316', bgColor: 'rgba(249, 115, 22, 0.1)' },
+  { label: '待整改隐患', value: dashboardData.value.pendingHazards || 0, icon: 'WarnTriangleFilled', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)' }
 ])
 
-// 获取仪表盘数据
 const fetchDashboard = async () => {
   try {
     const res = await getDashboard()
-    if (res.code === 200) {
-      dashboardData.value = res.data
-    }
-  } catch (error) {
-    console.error('获取仪表盘数据失败:', error)
-  }
+    if (res.code === 200) dashboardData.value = res.data
+  } catch (error) {}
 }
 
-// 初始化端口状态环形图
 const initPortStatusChart = async () => {
   try {
     const res = await getPortStatus()
     if (res.code === 200 && res.data?.statusList) {
-      const chartData = res.data.statusList
-        .filter(item => item.count > 0)
-        .map(item => ({
-          name: item.statusName,
-          value: item.count
-        }))
-
+      const chartData = res.data.statusList.filter(item => item.count > 0).map(item => ({ name: item.statusName, value: item.count }))
+      if (chartData.length === 0) return // Fallback to v-if if dashboard total is also 0
+      
+      await nextTick()
+      if (!portStatusChartRef.value) return
       portStatusChart = echarts.init(portStatusChartRef.value)
       portStatusChart.setOption({
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-        legend: { orient: 'vertical', right: '5%', top: 'center' },
+        color: colorPalette,
+        tooltip: { trigger: 'item', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0' },
+        legend: { bottom: '5%', icon: 'circle', textStyle: { color: '#64748b' } },
         series: [{
-          type: 'pie',
-          radius: ['40%', '70%'],
-          avoidLabelOverlap: false,
-          itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-          label: { show: false, position: 'center' },
-          emphasis: {
-            label: { show: true, fontSize: 18, fontWeight: 'bold' }
-          },
-          labelLine: { show: false },
+          type: 'pie', radius: ['50%', '75%'], center: ['50%', '42%'],
+          itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false },
           data: chartData
         }]
       })
     }
-  } catch (error) {
-    console.error('获取端口状态失败:', error)
-  }
+  } catch (error) {}
 }
 
-// 初始化订单趋势折线图
 const initOrderTrendChart = async () => {
   try {
     const res = await getOrderTrend()
-    if (res.code === 200 && res.data) {
+    if (res.code === 200 && res.data && res.data.orderCounts.length > 0 && res.data.orderCounts.some(v => v > 0)) {
+      hasOrderData.value = true
+      await nextTick()
       orderTrendChart = echarts.init(orderTrendChartRef.value)
       orderTrendChart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['订单数', '完成数', '金额(元)'] },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: {
-          type: 'category',
-          boundaryGap: false,
-          data: res.data.dates
-        },
+        color: ['#3b82f6', '#10b981', '#f59e0b'],
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0' },
+        legend: { top: '0%', textStyle: { color: '#64748b' } },
+        grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
+        xAxis: { type: 'category', boundaryGap: false, data: res.data.dates, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisLabel: { color: '#64748b' } },
         yAxis: [
-          { type: 'value', name: '数量' },
-          { type: 'value', name: '金额(元)' }
+          { type: 'value', name: '数量', splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLabel: { color: '#64748b' } },
+          { type: 'value', name: '金额(元)', position: 'right', splitLine: { show: false }, axisLabel: { color: '#64748b' } }
         ],
         series: [
-          {
-            name: '订单数',
-            type: 'line',
-            smooth: true,
-            data: res.data.orderCounts
+          { name: '订单数', type: 'line', smooth: true, showSymbol: false,
+            areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(59, 130, 246, 0.4)'}, {offset: 1, color: 'rgba(59, 130, 246, 0.05)'}]) },
+            lineStyle: { width: 3 }, data: res.data.orderCounts
           },
-          {
-            name: '完成数',
-            type: 'line',
-            smooth: true,
-            data: res.data.completedCounts
+          { name: '完成数', type: 'line', smooth: true, showSymbol: false,
+            areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(16, 185, 129, 0.4)'}, {offset: 1, color: 'rgba(16, 185, 129, 0.05)'}]) },
+            lineStyle: { width: 3 }, data: res.data.completedCounts
           },
-          {
-            name: '金额(元)',
-            type: 'line',
-            smooth: true,
-            yAxisIndex: 1,
-            data: res.data.amounts
-          }
+          { name: '金额(元)', type: 'line', smooth: true, yAxisIndex: 1, showSymbol: false, lineStyle: { width: 3, type: 'dashed' }, data: res.data.amounts }
         ]
       })
+    } else {
+      hasOrderData.value = false
     }
-  } catch (error) {
-    console.error('获取订单趋势失败:', error)
-  }
+  } catch (error) {}
 }
 
-// 初始化车棚利用率柱状图
 const initParkingUsageChart = async () => {
   try {
     const res = await getParkingAreaUsage()
-    if (res.code === 200 && res.data?.areas) {
+    if (res.code === 200 && res.data?.areas && res.data.areas.length > 0) {
+      hasParkingData.value = true
+      await nextTick()
       const areas = res.data.areas
       parkingUsageChart = echarts.init(parkingUsageChartRef.value)
       parkingUsageChart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['空闲', '充电中', '故障', '使用率%'] },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: {
-          type: 'category',
-          data: areas.map(a => a.name)
-        },
+        color: ['#e2e8f0', '#3b82f6', '#ef4444'], // 空闲用灰色，充电用蓝，故障用红
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', axisPointer: { type: 'shadow' } },
+        legend: { top: '0%', textStyle: { color: '#64748b' } },
+        grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
+        xAxis: { type: 'category', data: areas.map(a => a.name), axisLine: { lineStyle: { color: '#cbd5e1' } }, axisLabel: { color: '#64748b' } },
         yAxis: [
-          { type: 'value', name: '端口数' },
-          { type: 'value', name: '使用率%', max: 100 }
+          { type: 'value', splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLabel: { color: '#64748b' } },
+          { type: 'value', name: '使用率%', max: 100, splitLine: { show: false }, axisLabel: { color: '#64748b' } }
         ],
         series: [
-          { name: '空闲', type: 'bar', stack: 'total', data: areas.map(a => a.idlePorts) },
+          { name: '空闲', type: 'bar', stack: 'total', barWidth: '40%', data: areas.map(a => a.idlePorts) },
           { name: '充电中', type: 'bar', stack: 'total', data: areas.map(a => a.chargingPorts) },
-          { name: '故障', type: 'bar', stack: 'total', data: areas.map(a => a.faultPorts) },
-          {
-            name: '使用率%',
-            type: 'line',
-            yAxisIndex: 1,
-            data: areas.map(a => a.usageRate)
-          }
+          { name: '故障', type: 'bar', stack: 'total', itemStyle: { borderRadius: [4, 4, 0, 0] }, data: areas.map(a => a.faultPorts) },
+          { name: '使用率%', type: 'line', yAxisIndex: 1, smooth: true, itemStyle: { color: '#8b5cf6' }, lineStyle: { width: 3, shadowColor: 'rgba(139,92,246,0.3)', shadowBlur: 10 }, data: areas.map(a => a.usageRate) }
         ]
       })
+    } else {
+      hasParkingData.value = false
     }
-  } catch (error) {
-    console.error('获取车棚利用率失败:', error)
-  }
+  } catch (error) {}
 }
 
-// 初始化工单状态柱状图
 const initRepairChart = async () => {
   try {
     const res = await getRepairSummary()
-    if (res.code === 200 && res.data?.statusList) {
+    if (res.code === 200 && res.data?.statusList && res.data.statusList.length > 0 && res.data.statusList.some(v => v.count > 0)) {
+      hasRepairData.value = true
+      await nextTick()
       const statusList = res.data.statusList
       repairChart = echarts.init(repairChartRef.value)
       repairChart.setOption({
-        tooltip: { trigger: 'axis' },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: {
-          type: 'category',
-          data: statusList.map(s => s.statusName),
-          axisLabel: { rotate: 30 }
-        },
-        yAxis: { type: 'value', name: '数量' },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '5%', top: '10%', containLabel: true },
+        xAxis: { type: 'category', data: statusList.map(s => s.statusName), axisLabel: { color: '#64748b' }, axisLine: { lineStyle: { color: '#cbd5e1' } } },
+        yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLabel: { color: '#64748b' } },
         series: [{
-          type: 'bar',
-          data: statusList.map(s => s.count),
-          itemStyle: { color: '#409eff' }
+          type: 'bar', barWidth: '40%', data: statusList.map(s => s.count),
+          itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#38bdf8'}, {offset: 1, color: '#0ea5e9'}]), borderRadius: [4, 4, 0, 0] }
         }]
       })
+    } else {
+      hasRepairData.value = false
     }
-  } catch (error) {
-    console.error('获取工单状态失败:', error)
-  }
+  } catch (error) {}
 }
 
-// 初始化隐患状态饼图
 const initHazardChart = async () => {
   try {
     const res = await getHazardSummary()
-    if (res.code === 200 && res.data?.statusList) {
-      const chartData = res.data.statusList
-        .filter(item => item.count > 0)
-        .map(item => ({
-          name: item.statusName,
-          value: item.count
-        }))
-
+    if (res.code === 200 && res.data?.statusList && res.data.statusList.length > 0 && res.data.statusList.some(v => v.count > 0)) {
+      hasHazardData.value = true
+      await nextTick()
+      const chartData = res.data.statusList.filter(item => item.count > 0).map(item => ({ name: item.statusName, value: item.count }))
       hazardChart = echarts.init(hazardChartRef.value)
       hazardChart.setOption({
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-        legend: { orient: 'vertical', right: '5%', top: 'center' },
+        color: ['#f59e0b', '#ef4444', '#10b981'],
+        tooltip: { trigger: 'item' },
+        legend: { bottom: '5%', icon: 'circle', textStyle: { color: '#64748b' } },
         series: [{
-          type: 'pie',
-          radius: '70%',
-          data: chartData,
-          emphasis: {
-            itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' }
-          }
+          type: 'pie', radius: ['45%', '70%'], center: ['50%', '42%'],
+          itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false },
+          data: chartData
         }]
       })
+    } else {
+      hasHazardData.value = false
     }
-  } catch (error) {
-    console.error('获取隐患状态失败:', error)
-  }
+  } catch (error) {}
 }
 
-// 窗口大小变化时重绘图表
 const handleResize = () => {
   portStatusChart?.resize()
   orderTrendChart?.resize()
@@ -317,39 +311,87 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .statistics-page {
-  padding: 0;
+  padding: 10px;
+  background-color: #f8fafc;
+  min-height: calc(100vh - 84px);
 }
 
-.stat-cards {
-  margin-bottom: 16px;
+.saas-stat-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.03) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  background: #fff;
+}
+.saas-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px 0 rgba(0, 0, 0, 0.08) !important;
 }
 
-.stat-card {
-  height: 100px;
+.stat-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 20px;
 }
 
-.stat-card-content {
+.stat-info {
   display: flex;
   flex-direction: column;
 }
 
-.stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #303133;
-}
-
 .stat-label {
   font-size: 14px;
-  color: #909399;
-  margin-top: 8px;
+  color: #64748b;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
-.stat-icon {
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: 'Inter', -apple-system, sans-serif;
+  line-height: 1.2;
+}
+
+.stat-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saas-chart-card {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+.saas-chart-card :deep(.el-card__header) {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 20px 24px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  position: relative;
+  padding-left: 12px;
+}
+.card-title::before {
+  content: '';
   position: absolute;
-  right: 20px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
-  opacity: 0.2;
+  width: 4px;
+  height: 16px;
+  background: #3b82f6;
+  border-radius: 2px;
 }
 </style>

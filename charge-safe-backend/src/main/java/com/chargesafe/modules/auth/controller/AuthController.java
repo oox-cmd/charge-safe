@@ -40,4 +40,22 @@ public class AuthController {
     public Result<java.util.List<MenuVO>> getCurrentUserMenus() {
         return Result.success(menuService.listCurrentUserMenus());
     }
+
+    @Operation(summary = "获取当前用户权限码")
+    @GetMapping("/permissions")
+    public Result<java.util.List<String>> getCurrentUserPermissions() {
+        java.util.List<String> permissions = new java.util.ArrayList<>();
+        extractPermissions(menuService.listCurrentUserMenus(), permissions);
+        return Result.success(permissions);
+    }
+
+    private void extractPermissions(java.util.List<MenuVO> menus, java.util.List<String> permissions) {
+        if (menus == null) return;
+        for (MenuVO menu : menus) {
+            if (menu.getPermissionCode() != null && !menu.getPermissionCode().isEmpty()) {
+                permissions.add(menu.getPermissionCode());
+            }
+            extractPermissions(menu.getChildren(), permissions);
+        }
+    }
 }

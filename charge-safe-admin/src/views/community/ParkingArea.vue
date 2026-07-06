@@ -1,49 +1,59 @@
 <template>
   <div class="parking-area-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>车棚管理</span>
-          <div>
-            <el-select v-model="queryParams.communityId" placeholder="选择社区" clearable style="margin-right: 10px; width: 200px">
-              <el-option v-for="item in communities" :key="item.id" :label="item.name" :value="item.id" />
-            </el-select>
-            <el-button type="primary" @click="handleAdd">
-              <el-icon><Plus /></el-icon>新增车棚
-            </el-button>
-          </div>
-        </div>
-      </template>
+    <!-- 页面标题 -->
+    <CsPageHeader title="车棚管理" description="管理社区内的自行车、电动车充电停放车棚及点位位置。" />
 
-      <el-table :data="tableData" v-loading="loading" stripe>
+    <!-- 搜索面板 -->
+    <CsSearchPanel :model="queryParams" @search="fetchData" @reset="resetQuery">
+      <el-form-item label="所属社区">
+        <el-select v-model="queryParams.communityId" placeholder="选择社区" clearable style="width: 220px">
+          <el-option v-for="item in communities" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+      </el-form-item>
+    </CsSearchPanel>
+
+    <!-- 数据表格 -->
+    <el-card shadow="never">
+      <CsTableToolbar @refresh="fetchData">
+        <template #left>
+          <el-button v-permission="'parking-area:add'" type="primary" icon="Plus" @click="handleAdd">新增车棚</el-button>
+        </template>
+      </CsTableToolbar>
+
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="车棚名称" />
         <el-table-column prop="communityName" label="所属社区" />
         <el-table-column prop="location" label="位置" />
-        <el-table-column prop="portCount" label="端口数" width="80" />
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="portCount" label="端口数" width="100" />
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'parking-area:edit'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <CsConfirmButton
+              v-permission="'parking-area:delete'"
+              :title="`确定要删除车棚 【${row.name}】 吗？此操作不可逆！`"
+              type="danger"
+              buttonType="danger"
+              @confirm="handleDelete(row)"
+            >
+              删除
+            </CsConfirmButton>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <CsPagination
         v-model:current-page="queryParams.page"
         v-model:page-size="queryParams.size"
         :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
         @change="fetchData"
-        style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
 
@@ -72,9 +82,14 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import CsPagination from '@/components/CsPagination.vue'
+import { ElMessage } from 'element-plus'
 import { getParkingAreas, createParkingArea, updateParkingArea, deleteParkingArea } from '@/api/community'
 import { getCommunityList } from '@/api/community'
+import CsPageHeader from '@/components/CsPageHeader.vue'
+import CsSearchPanel from '@/components/CsSearchPanel.vue'
+import CsTableToolbar from '@/components/CsTableToolbar.vue'
+import CsConfirmButton from '@/components/CsConfirmButton.vue'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -129,6 +144,12 @@ const fetchData = async () => {
   }
 }
 
+const resetQuery = () => {
+  queryParams.communityId = null
+  queryParams.page = 1
+  fetchData()
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增车棚'
   form.id = null
@@ -174,14 +195,11 @@ const handleSubmit = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm('确定要删除该车棚吗？', '提示', { type: 'warning' })
     await deleteParkingArea(row.id)
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-    }
+    console.error('删除失败:', error)
   }
 }
 
@@ -192,9 +210,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 </style>

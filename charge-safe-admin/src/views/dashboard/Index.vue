@@ -253,16 +253,19 @@ const renderChart = (data) => {
   chart.setOption(option)
 }
 
+const handleResize = () => {
+  chart?.resize()
+}
+
 onMounted(() => {
   fetchDashboard()
   fetchPortStatistics()
 
-  window.addEventListener('resize', () => {
-    chart?.resize()
-  })
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
   chart?.dispose()
 })
 </script>

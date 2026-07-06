@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -81,6 +81,7 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const unreadCount = ref(0)
+let unreadTimer = null
 
 // 根据角色过滤菜单
 const allMenuItems = [
@@ -134,8 +135,14 @@ const handleCommand = (command) => {
 
 onMounted(() => {
   fetchUnreadCount()
-  // 每分钟刷新未读消息数
-  setInterval(fetchUnreadCount, 60000)
+  unreadTimer = setInterval(fetchUnreadCount, 60000)
+})
+
+onUnmounted(() => {
+  if (unreadTimer) {
+    clearInterval(unreadTimer)
+    unreadTimer = null
+  }
 })
 </script>
 
