@@ -1,9 +1,28 @@
 {
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			"^EmptyState": "@/components/EmptyState.vue"
+		}
+	},
 	"pages": [
 		{
 			"path": "pages/login",
 			"style": {
-				"navigationBarTitleText": "登录"
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/register",
+			"style": {
+				"navigationBarTitleText": "注册账号"
+			}
+		},
+		{
+			"path": "pages/forgot-password",
+			"style": {
+				"navigationBarTitleText": "忘记密码"
 			}
 		},
 		{
@@ -22,6 +41,12 @@
 			"path": "pages/parking/detail",
 			"style": {
 				"navigationBarTitleText": "车棚详情"
+			}
+		},
+		{
+			"path": "pages/reservation/index",
+			"style": {
+				"navigationBarTitleText": "我的预约"
 			}
 		},
 		{
@@ -71,6 +96,18 @@
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
+		},
+		{
+			"path": "pages/profile/edit-profile",
+			"style": {
+				"navigationBarTitleText": "编辑资料"
+			}
+		},
+		{
+			"path": "pages/profile/settings",
+			"style": {
+				"navigationBarTitleText": "设置"
+			}
 		}
 	],
 	"globalStyle": {
@@ -78,5 +115,25 @@
 		"navigationBarTitleText": "ChargeSafe",
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#409eff",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页",
+				"iconPath": "static/logo.png",
+				"selectedIconPath": "static/logo.png"
+			},
+			{
+				"pagePath": "pages/profile/index",
+				"text": "我的",
+				"iconPath": "static/logo.png",
+				"selectedIconPath": "static/logo.png"
+			}
+		]
 	}
 }
