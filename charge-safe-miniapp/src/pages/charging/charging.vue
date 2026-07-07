@@ -8,22 +8,44 @@
         <text class="timer-label">已充电时长</text>
       </view>
     </view>
+
     <view class="info-card">
       <view class="row"><text class="lbl">订单号</text><text class="val">{{ order.orderNo }}</text></view>
+      <view class="row"><text class="lbl">端口</text><text class="val">{{ order.portName || 'A1-1号口' }}</text></view>
+      <view class="row"><text class="lbl">车棚</text><text class="val">{{ order.parkingName || 'A栋充电车棚' }}</text></view>
       <view class="row"><text class="lbl">开始时间</text><text class="val">{{ order.startTime }}</text></view>
       <view class="row"><text class="lbl">当前费用</text><text class="val cost">¥{{ amount }}</text></view>
     </view>
+
     <button class="btn-stop" @click="handleStop">结束充电</button>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-const order = ref({ orderNo: 'ORD202607040001', startTime: '2026-07-04 08:00', status: 'CHARGING' })
+const order = ref({
+  orderNo: 'ORD202607040001', startTime: '2026-07-04 08:00',
+  portName: 'A1-1号口', parkingName: 'A栋充电车棚', status: 'CHARGING', id: 1
+})
 const elapsed = ref(0); let timer = null
 const duration = computed(() => { const h = Math.floor(elapsed.value / 3600); const m = Math.floor((elapsed.value % 3600) / 60); const s = elapsed.value % 60; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` })
 const amount = computed(() => Math.max(0.50, (elapsed.value / 3600) * 1.5).toFixed(2))
-const handleStop = () => uni.showModal({ title: '确认结束', content: '确定要结束充电吗？', success: (res) => { if (res.confirm) { uni.showToast({ title: '充电已结束', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) } } })
+
+function handleStop() {
+  uni.showModal({
+    title: '确认结束', content: '确定要结束充电吗？结束后将生成订单。',
+    confirmText: '确认结束', confirmColor: '#ef4444',
+    success: (res) => {
+      if (res.confirm) {
+        if (timer) clearInterval(timer)
+        uni.showToast({ title: '充电已结束', icon: 'success' })
+        order.value.status = 'COMPLETED'
+        setTimeout(() => uni.redirectTo({ url: `/pages/order/detail?id=${order.value.id}&finished=1` }), 1000)
+      }
+    }
+  })
+}
+
 onMounted(() => { timer = setInterval(() => elapsed.value++, 1000) })
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
