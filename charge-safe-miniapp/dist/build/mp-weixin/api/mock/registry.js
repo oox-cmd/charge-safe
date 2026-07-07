@@ -1,0 +1,1 @@
+"use strict";const e=new Map;exports.getHandler=function(t,r){return e.get(`${t.toUpperCase()}:${r}`)},exports.getHandlerCount=function(){return e.size},exports.hasHandler=function(t,r){return e.has(`${t.toUpperCase()}:${r}`)},exports.registerMock=function(t,r,n){e.set(`${t.toUpperCase()}:${r}`,n)};

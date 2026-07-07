@@ -1,0 +1,48 @@
+{
+  "pages": [
+    "pages/login",
+    "pages/register",
+    "pages/forgot-password",
+    "pages/index/index",
+    "pages/parking/index",
+    "pages/parking/detail",
+    "pages/reservation/index",
+    "pages/reservation/confirm",
+    "pages/charging/charging",
+    "pages/order/list",
+    "pages/order/detail",
+    "pages/repair/submit",
+    "pages/repair/list",
+    "pages/notification/list",
+    "pages/profile/index",
+    "pages/profile/edit-profile",
+    "pages/profile/settings"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "ChargeSafe",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#409eff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/logo.png",
+        "selectedIconPath": "static/logo.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "static/logo.png",
+        "selectedIconPath": "static/logo.png"
+      }
+    ]
+  },
+  "usingComponents": {}
+}

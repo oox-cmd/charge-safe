@@ -1,0 +1,1 @@
+"use strict";const e=require("./request.js");exports.getAllCommunities=function(){return e.request({url:"/api/communities",method:"GET"})},exports.getNearestCommunity=function(t,r){return e.request({url:"/api/communities/nearest",method:"GET",data:{lat:t,lng:r}})};
