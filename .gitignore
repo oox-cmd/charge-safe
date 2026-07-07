@@ -1,0 +1,19 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Java build
+target/
+*.class
+*.jar
+*.war
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

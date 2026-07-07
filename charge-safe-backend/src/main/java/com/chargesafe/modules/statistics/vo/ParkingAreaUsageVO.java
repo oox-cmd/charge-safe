@@ -1,0 +1,58 @@
+package com.chargesafe.modules.statistics.vo;
+
+import lombok.Data;
+
+import java.util.List;
+
+/**
+ * 车棚使用率统计
+ */
+@Data
+public class ParkingAreaUsageVO {
+
+    /**
+     * 各车棚使用情况列表
+     */
+    private List<ParkingAreaUsage> areas;
+
+    /**
+     * 单个车棚使用情况
+     */
+    @Data
+    public static class ParkingAreaUsage {
+        /**
+         * 车棚ID
+         */
+        private Long id;
+
+        /**
+         * 车棚名称
+         */
+        private String name;
+
+        /**
+         * 端口总数
+         */
+        private Integer totalPorts;
+
+        /**
+         * 空闲端口数
+         */
+        private Integer idlePorts;
+
+        /**
+         * 充电中端口数
+         */
+        private Integer chargingPorts;
+
+        /**
+         * 故障端口数
+         */
+        private Integer faultPorts;
+
+        /**
+         * 使用率（百分比）
+         */
+        private Double usageRate;
+    }
+}

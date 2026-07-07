@@ -1,0 +1,19 @@
+# 云端共享开发库配置
+# 用途：多人联调、前后端接口对接、阶段性测试使用
+# 前置条件：先在本地 PowerShell 执行 SSH 隧道命令
+#   ssh -L 13306:127.0.0.1:3306 root@43.108.40.12
+
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:13306/charge_safe_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${CHARGE_SAFE_DB_USERNAME:charge_safe_app}
+    password: ${CHARGE_SAFE_DB_PASSWORD:cugb666}
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.chargesafe: info

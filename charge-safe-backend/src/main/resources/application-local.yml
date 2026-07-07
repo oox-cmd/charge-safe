@@ -1,0 +1,18 @@
+# 本地个人开发库配置
+# 用途：每个开发成员在自己电脑上开发和调试使用
+
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/charge_safe_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${CHARGE_SAFE_DB_USERNAME:charge_safe_app}
+    password: ${CHARGE_SAFE_DB_PASSWORD:cugb666}
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.chargesafe: debug
+    org.flywaydb: debug
