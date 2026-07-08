@@ -1,0 +1,182 @@
+-- H2 兼容建表（MySQL 模式）
+
+CREATE TABLE IF NOT EXISTS sys_role (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  role_name VARCHAR(50) NOT NULL,
+  role_code VARCHAR(50) NOT NULL UNIQUE,
+  description VARCHAR(200),
+  status TINYINT DEFAULT 1,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS community (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  address VARCHAR(255),
+  contact_name VARCHAR(50),
+  contact_phone VARCHAR(20),
+  lat DOUBLE,
+  lng DOUBLE,
+  status TINYINT DEFAULT 1,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sys_user (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(200) NOT NULL,
+  nickname VARCHAR(50),
+  phone VARCHAR(20),
+  avatar VARCHAR(500),
+  status TINYINT DEFAULT 1,
+  community_id BIGINT,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sys_user_role (
+  user_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL,
+  PRIMARY KEY (user_id, role_id)
+);
+
+CREATE TABLE IF NOT EXISTS sys_menu (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  parent_id BIGINT DEFAULT 0,
+  menu_name VARCHAR(50) NOT NULL,
+  menu_type VARCHAR(20) DEFAULT 'MENU',
+  path VARCHAR(200),
+  component VARCHAR(200),
+  icon VARCHAR(50),
+  sort_order INT DEFAULT 0,
+  permission VARCHAR(100),
+  status TINYINT DEFAULT 1,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sys_role_menu (
+  role_id BIGINT NOT NULL,
+  menu_id BIGINT NOT NULL,
+  PRIMARY KEY (role_id, menu_id)
+);
+
+CREATE TABLE IF NOT EXISTS parking_area (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  community_id BIGINT NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  location VARCHAR(255),
+  port_count INT DEFAULT 0,
+  status TINYINT DEFAULT 1,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS charging_device (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  parking_area_id BIGINT NOT NULL,
+  device_code VARCHAR(50) NOT NULL,
+  device_name VARCHAR(100) NOT NULL,
+  device_type VARCHAR(50),
+  port_count INT DEFAULT 0,
+  status TINYINT DEFAULT 1,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS charging_port (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  device_id BIGINT NOT NULL,
+  port_number INT NOT NULL,
+  port_name VARCHAR(100),
+  status VARCHAR(30) DEFAULT 'IDLE',
+  power_rating DECIMAL(10,2),
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS charging_order (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_no VARCHAR(50) NOT NULL UNIQUE,
+  user_id BIGINT NOT NULL,
+  port_id BIGINT,
+  community_id BIGINT,
+  start_time TIMESTAMP,
+  end_time TIMESTAMP,
+  duration_minutes INT,
+  power_consumed DECIMAL(10,2),
+  amount DECIMAL(10,2) DEFAULT 0,
+  status VARCHAR(30) DEFAULT 'CHARGING',
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS charging_reservation (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  port_id BIGINT NOT NULL,
+  community_id BIGINT,
+  reserve_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expire_time TIMESTAMP NOT NULL,
+  status VARCHAR(20) DEFAULT 'PENDING',
+  cancel_reason VARCHAR(200),
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS repair_report (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  reporter_id BIGINT NOT NULL,
+  community_id BIGINT NOT NULL,
+  device_id BIGINT,
+  port_id BIGINT,
+  fault_type VARCHAR(50),
+  fault_desc VARCHAR(500) NOT NULL,
+  fault_images TEXT,
+  status VARCHAR(20) DEFAULT 'PENDING',
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS notification (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  content VARCHAR(500),
+  type VARCHAR(30) NOT NULL,
+  business_type VARCHAR(30),
+  business_id BIGINT,
+  is_read TINYINT DEFAULT 0,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS inspection_task (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  community_id BIGINT NOT NULL,
+  task_name VARCHAR(100) NOT NULL,
+  task_desc VARCHAR(500),
+  inspector_id BIGINT,
+  plan_start_time TIMESTAMP,
+  plan_end_time TIMESTAMP,
+  actual_start_time TIMESTAMP,
+  actual_end_time TIMESTAMP,
+  status VARCHAR(20) DEFAULT 'PENDING',
+  created_by BIGINT,
+  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT DEFAULT 0
+);

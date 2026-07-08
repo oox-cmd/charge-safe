@@ -1,0 +1,139 @@
+{
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			"^EmptyState": "@/components/EmptyState.vue"
+		}
+	},
+	"pages": [
+		{
+			"path": "pages/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/register",
+			"style": {
+				"navigationBarTitleText": "注册账号"
+			}
+		},
+		{
+			"path": "pages/forgot-password",
+			"style": {
+				"navigationBarTitleText": "忘记密码"
+			}
+		},
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "首页"
+			}
+		},
+		{
+			"path": "pages/parking/index",
+			"style": {
+				"navigationBarTitleText": "充电车棚"
+			}
+		},
+		{
+			"path": "pages/parking/detail",
+			"style": {
+				"navigationBarTitleText": "车棚详情"
+			}
+		},
+		{
+			"path": "pages/reservation/index",
+			"style": {
+				"navigationBarTitleText": "我的预约"
+			}
+		},
+		{
+			"path": "pages/reservation/confirm",
+			"style": {
+				"navigationBarTitleText": "确认预约"
+			}
+		},
+		{
+			"path": "pages/charging/charging",
+			"style": {
+				"navigationBarTitleText": "充电中"
+			}
+		},
+		{
+			"path": "pages/order/list",
+			"style": {
+				"navigationBarTitleText": "我的订单"
+			}
+		},
+		{
+			"path": "pages/order/detail",
+			"style": {
+				"navigationBarTitleText": "订单详情"
+			}
+		},
+		{
+			"path": "pages/repair/submit",
+			"style": {
+				"navigationBarTitleText": "提交报修"
+			}
+		},
+		{
+			"path": "pages/repair/list",
+			"style": {
+				"navigationBarTitleText": "报修记录"
+			}
+		},
+		{
+			"path": "pages/notification/list",
+			"style": {
+				"navigationBarTitleText": "消息通知"
+			}
+		},
+		{
+			"path": "pages/profile/index",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			"path": "pages/profile/edit-profile",
+			"style": {
+				"navigationBarTitleText": "编辑资料"
+			}
+		},
+		{
+			"path": "pages/profile/settings",
+			"style": {
+				"navigationBarTitleText": "设置"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "ChargeSafe",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#409eff",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页",
+				"iconPath": "static/logo.png",
+				"selectedIconPath": "static/logo.png"
+			},
+			{
+				"pagePath": "pages/profile/index",
+				"text": "我的",
+				"iconPath": "static/logo.png",
+				"selectedIconPath": "static/logo.png"
+			}
+		]
+	}
+}
