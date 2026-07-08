@@ -2,6 +2,7 @@ package com.chargesafe.security;
 
 import com.chargesafe.modules.user.entity.SysUser;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
+import com.chargesafe.modules.user.service.MenuService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * JWT 认证过滤器
@@ -24,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final SysUserMapper userMapper;
+    private final MenuService menuService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -42,6 +45,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (user != null) {
                     loginUser.setNickname(user.getNickname());
                     loginUser.setCommunityId(user.getCommunityId());
+                }
+
+                // 加载用户权限码集合
+                try {
+                    Set<String> permissions = menuService.listPermissionCodesByUserId(userId);
+                    loginUser.setPermissions(permissions);
+                } catch (Exception e) {
+                    log.warn("加载用户权限码失败: {}", e.getMessage());
                 }
 
                 UserContext.setUser(loginUser);

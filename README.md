@@ -14,7 +14,7 @@ ChargeSafe 是一个面向小区、园区、学校宿舍区、写字楼等场景
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Java 17 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT · Flyway |
+| 后端 | Java 17 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT · Flyway · Caffeine Cache |
 | Web 管理端 | Vue 3 · Vite · Element Plus · Pinia · Axios · ECharts |
 | 小程序端 | uni-app · Vue 3 |
 | 接口文档 | Knife4j (Swagger) |
@@ -49,7 +49,9 @@ charge-safe/
 │           └── db/migration/         # Flyway 迁移文件
 │               ├── V1__init_schema.sql
 │               ├── V2__init_data.sql
-│               └── V3__add_menu_tables.sql
+│               ├── V3__add_menu_tables.sql
+│               ├── V4__add_community_coordinates.sql
+│               └── V5__adjust_property_admin_menus.sql
 ├── charge-safe-admin/                # Vue3 Web 管理端
 │   └── src/
 │       ├── api/                      # API 接口封装
@@ -131,7 +133,7 @@ cd charge-safe-backend
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-Flyway 会自动初始化数据库表结构和初始数据（V1 + V2 + V3）。
+Flyway 会自动初始化数据库表结构和初始数据（V1 ~ V5）。
 
 后端运行在 `http://localhost:8080`，API 文档：`http://localhost:8080/doc.html`
 
@@ -185,7 +187,7 @@ npm run build:mp-weixin
 
 | 模块 | 说明 |
 |------|------|
-| 用户与角色管理 | RBAC 权限模型，5 种角色，菜单权限 + 数据权限，用户/角色/菜单 CRUD |
+| 用户与角色管理 | RBAC 权限模型，5 种角色，JWT 认证 + 前端路由控制 + 后端 `@RequiresPermission` 注解，用户/角色/菜单 CRUD |
 | 社区资源管理 | 社区 → 车棚 → 设备 → 端口 层级管理 |
 | 预约充电 | 预约端口、冲突检测（端口/用户维度）、扫码开始充电、结束充电、生成订单 |
 | 报修工单 | 居民报修、工单派发、维修处理、验收关闭 |
@@ -199,18 +201,18 @@ npm run build:mp-weixin
 
 ## API 接口
 
-共实现 **95+ 个 RESTful 接口**：
+共实现 **100 个 RESTful 接口**：
 
 | 模块 | 路径前缀 | 接口数 |
 |------|---------|-------|
-| 认证 | `/api/auth` | 3 |
+| 认证 | `/api/auth` | 4 |
 | 用户管理 | `/api/users` | 7 |
 | 角色管理 | `/api/roles` | 6 |
 | 菜单管理 | `/api/menus` | 5 |
-| 社区 | `/api/communities` | 5 |
-| 车棚 | `/api/parking-areas` | 5 |
-| 设备 | `/api/devices` | 5 |
-| 端口 | `/api/ports` | 8 |
+| 社区 | `/api/communities` | 6 |
+| 车棚 | `/api/parking-areas` | 6 |
+| 设备 | `/api/devices` | 6 |
+| 端口 | `/api/ports` | 9 |
 | 预约 | `/api/reservations` | 6 |
 | 充电 | `/api/charging` | 3 |
 | 订单 | `/api/orders` | 3 |
@@ -229,9 +231,11 @@ npm run build:mp-weixin
 
 ```
 charge-safe-backend/src/main/resources/db/migration/
-├── V1__init_schema.sql        # 19 张业务表
+├── V1__init_schema.sql        # 21 张业务表
 ├── V2__init_data.sql           # 初始数据（角色、菜单、测试数据）
-└── V3__add_menu_tables.sql     # RBAC 菜单权限表 + 菜单数据
+├── V3__add_menu_tables.sql     # RBAC 菜单权限表 + 菜单数据（+2 张表）
+├── V4__add_community_coordinates.sql  # 社区经纬度 + 补充演示数据
+└── V5__adjust_property_admin_menus.sql # 物业管理员菜单权限补充
 ```
 
 ### 规则

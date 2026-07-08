@@ -6,6 +6,7 @@ import com.chargesafe.common.Result;
 import com.chargesafe.modules.community.dto.ParkingAreaDTO;
 import com.chargesafe.modules.community.entity.ParkingArea;
 import com.chargesafe.modules.community.service.ParkingAreaService;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,12 +45,14 @@ public class ParkingAreaController {
     }
 
     @Operation(summary = "创建车棚")
+    @RequiresPermission("parking-area:view")
     @PostMapping
     public Result<ParkingArea> create(@Valid @RequestBody ParkingAreaDTO dto) {
         return Result.success(parkingAreaService.create(dto));
     }
 
     @Operation(summary = "更新车棚")
+    @RequiresPermission("parking-area:view")
     @PutMapping("/{id}")
     public Result<ParkingArea> update(@PathVariable Long id, @Valid @RequestBody ParkingAreaDTO dto) {
         dto.setId(id);
@@ -57,6 +60,7 @@ public class ParkingAreaController {
     }
 
     @Operation(summary = "删除车棚")
+    @RequiresPermission("parking-area:view")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         parkingAreaService.delete(id);

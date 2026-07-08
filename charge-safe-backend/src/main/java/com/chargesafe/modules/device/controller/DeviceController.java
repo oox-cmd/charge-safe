@@ -6,6 +6,7 @@ import com.chargesafe.common.Result;
 import com.chargesafe.modules.device.dto.DeviceDTO;
 import com.chargesafe.modules.device.entity.ChargingDevice;
 import com.chargesafe.modules.device.service.DeviceService;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,12 +45,14 @@ public class DeviceController {
     }
 
     @Operation(summary = "创建设备")
+    @RequiresPermission("device:list:view")
     @PostMapping
     public Result<ChargingDevice> create(@Valid @RequestBody DeviceDTO dto) {
         return Result.success(deviceService.create(dto));
     }
 
     @Operation(summary = "更新设备")
+    @RequiresPermission("device:list:view")
     @PutMapping("/{id}")
     public Result<ChargingDevice> update(@PathVariable Long id, @Valid @RequestBody DeviceDTO dto) {
         dto.setId(id);
@@ -57,6 +60,7 @@ public class DeviceController {
     }
 
     @Operation(summary = "启用/停用设备")
+    @RequiresPermission("device:list:view")
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
         deviceService.updateStatus(id, status);

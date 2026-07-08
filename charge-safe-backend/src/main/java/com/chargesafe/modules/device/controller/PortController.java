@@ -6,6 +6,7 @@ import com.chargesafe.common.Result;
 import com.chargesafe.modules.device.dto.PortDTO;
 import com.chargesafe.modules.device.entity.ChargingPort;
 import com.chargesafe.modules.device.service.PortService;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -57,12 +58,14 @@ public class PortController {
     }
 
     @Operation(summary = "创建端口")
+    @RequiresPermission("port:view")
     @PostMapping
     public Result<ChargingPort> create(@Valid @RequestBody PortDTO dto) {
         return Result.success(portService.create(dto));
     }
 
     @Operation(summary = "批量创建端口")
+    @RequiresPermission("port:view")
     @PostMapping("/batch")
     public Result<List<ChargingPort>> batchCreate(
             @RequestParam Long deviceId,
@@ -71,6 +74,7 @@ public class PortController {
     }
 
     @Operation(summary = "更新端口状态")
+    @RequiresPermission("port:view")
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable Long id, @RequestParam String status) {
         portService.updateStatus(id, status);

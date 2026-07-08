@@ -10,6 +10,7 @@ import com.chargesafe.modules.repair.dto.TicketFinishDTO;
 import com.chargesafe.modules.repair.entity.RepairReport;
 import com.chargesafe.modules.repair.entity.RepairTicket;
 import com.chargesafe.modules.repair.service.RepairService;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +29,7 @@ public class RepairController {
 
     @Operation(summary = "提交报修")
     @OperationLog(module = "报修管理", description = "提交报修", type = "CREATE")
+    @RequiresPermission("repair-report:view")
     @PostMapping("/repair-reports")
     public Result<RepairReport> createReport(@Valid @RequestBody RepairReportDTO dto) {
         return Result.success(repairService.createReport(dto));
@@ -52,6 +54,7 @@ public class RepairController {
 
     @Operation(summary = "派发工单")
     @OperationLog(module = "报修管理", description = "派发工单", type = "UPDATE")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/dispatch")
     public Result<RepairTicket> dispatchTicket(@Valid @RequestBody TicketDispatchDTO dto) {
         return Result.success(repairService.dispatchTicket(dto));
@@ -59,6 +62,7 @@ public class RepairController {
 
     @Operation(summary = "运维人员接单")
     @OperationLog(module = "报修管理", description = "运维人员接单", type = "UPDATE")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/accept")
     public Result<Void> acceptTicket(@PathVariable Long id) {
         repairService.acceptTicket(id);
@@ -74,6 +78,7 @@ public class RepairController {
 
     @Operation(summary = "维修完成")
     @OperationLog(module = "报修管理", description = "维修完成", type = "UPDATE")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/finish")
     public Result<Void> finishTicket(@PathVariable Long id, @Valid @RequestBody TicketFinishDTO dto) {
         repairService.finishTicket(id, dto);
@@ -82,6 +87,7 @@ public class RepairController {
 
     @Operation(summary = "验收工单")
     @OperationLog(module = "报修管理", description = "验收工单", type = "UPDATE")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/accept-repair")
     public Result<Void> acceptTicketByProperty(@PathVariable Long id) {
         repairService.acceptTicketByProperty(id);
@@ -89,6 +95,7 @@ public class RepairController {
     }
 
     @Operation(summary = "驳回工单")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/reject")
     public Result<Void> rejectTicket(@PathVariable Long id, @RequestParam String reason) {
         repairService.rejectTicket(id, reason);
@@ -96,6 +103,7 @@ public class RepairController {
     }
 
     @Operation(summary = "关闭工单")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/close")
     public Result<Void> closeTicket(@PathVariable Long id) {
         repairService.closeTicket(id);

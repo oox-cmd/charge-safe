@@ -9,6 +9,7 @@ import com.chargesafe.modules.inspection.entity.InspectionRecord;
 import com.chargesafe.modules.inspection.entity.InspectionTask;
 import com.chargesafe.modules.inspection.entity.SafetyHazard;
 import com.chargesafe.modules.inspection.service.InspectionService;
+import com.chargesafe.security.RequiresPermission;
 import com.chargesafe.security.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +29,7 @@ public class InspectionController {
 
     @Operation(summary = "创建巡检任务")
     @OperationLog(module = "巡检管理", description = "创建巡检任务", type = "CREATE")
+    @RequiresPermission("inspection-task:view")
     @PostMapping("/inspection-tasks")
     public Result<InspectionTask> createTask(@Valid @RequestBody InspectionTaskDTO dto) {
         return Result.success(inspectionService.createTask(dto));
@@ -60,6 +62,7 @@ public class InspectionController {
 
     @Operation(summary = "开始巡检")
     @OperationLog(module = "巡检管理", description = "开始巡检", type = "UPDATE")
+    @RequiresPermission("inspection-task:view")
     @PostMapping("/inspection-tasks/{id}/start")
     public Result<Void> startTask(@PathVariable Long id) {
         inspectionService.startTask(id);
@@ -67,12 +70,14 @@ public class InspectionController {
     }
 
     @Operation(summary = "提交巡检结果")
+    @RequiresPermission("inspection-task:view")
     @PostMapping("/inspection-tasks/{id}/submit")
     public Result<InspectionRecord> submitInspection(@PathVariable Long id, @Valid @RequestBody InspectionSubmitDTO dto) {
         return Result.success(inspectionService.submitInspection(id, dto));
     }
 
     @Operation(summary = "完成巡检任务")
+    @RequiresPermission("inspection-task:view")
     @PostMapping("/inspection-tasks/{id}/complete")
     public Result<Void> completeTask(@PathVariable Long id) {
         inspectionService.completeTask(id);
@@ -83,6 +88,7 @@ public class InspectionController {
 
     @Operation(summary = "上报安全隐患")
     @OperationLog(module = "隐患管理", description = "上报安全隐患", type = "CREATE")
+    @RequiresPermission("hazard:view")
     @PostMapping("/hazards")
     public Result<SafetyHazard> reportHazard(@Valid @RequestBody HazardReportDTO dto) {
         return Result.success(inspectionService.reportHazard(dto));
@@ -105,6 +111,7 @@ public class InspectionController {
 
     @Operation(summary = "隐患整改")
     @OperationLog(module = "隐患管理", description = "隐患整改", type = "UPDATE")
+    @RequiresPermission("hazard:view")
     @PostMapping("/hazards/{id}/rectify")
     public Result<Void> rectifyHazard(@PathVariable Long id, @Valid @RequestBody HazardRectifyDTO dto) {
         inspectionService.rectifyHazard(id, dto);
@@ -112,6 +119,7 @@ public class InspectionController {
     }
 
     @Operation(summary = "隐患复查")
+    @RequiresPermission("hazard:view")
     @PostMapping("/hazards/{id}/review")
     public Result<Void> reviewHazard(@PathVariable Long id, @Valid @RequestBody HazardReviewDTO dto) {
         inspectionService.reviewHazard(id, dto);
@@ -119,6 +127,7 @@ public class InspectionController {
     }
 
     @Operation(summary = "关闭隐患")
+    @RequiresPermission("hazard:view")
     @PostMapping("/hazards/{id}/close")
     public Result<Void> closeHazard(@PathVariable Long id) {
         inspectionService.closeHazard(id);

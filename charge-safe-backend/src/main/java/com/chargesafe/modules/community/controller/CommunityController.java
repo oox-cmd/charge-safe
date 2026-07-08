@@ -7,6 +7,7 @@ import com.chargesafe.common.Result;
 import com.chargesafe.modules.community.dto.CommunityDTO;
 import com.chargesafe.modules.community.entity.Community;
 import com.chargesafe.modules.community.service.CommunityService;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,6 +44,7 @@ public class CommunityController {
 
     @Operation(summary = "创建社区")
     @OperationLog(module = "社区管理", description = "创建社区", type = "CREATE")
+    @RequiresPermission("community:list:view")
     @PostMapping
     public Result<Community> create(@Valid @RequestBody CommunityDTO dto) {
         return Result.success(communityService.create(dto));
@@ -50,6 +52,7 @@ public class CommunityController {
 
     @Operation(summary = "更新社区")
     @OperationLog(module = "社区管理", description = "更新社区", type = "UPDATE")
+    @RequiresPermission("community:list:view")
     @PutMapping("/{id}")
     public Result<Community> update(@PathVariable Long id, @Valid @RequestBody CommunityDTO dto) {
         dto.setId(id);
@@ -58,6 +61,7 @@ public class CommunityController {
 
     @Operation(summary = "启用/停用社区")
     @OperationLog(module = "社区管理", description = "启用/停用社区", type = "UPDATE")
+    @RequiresPermission("community:list:view")
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
         communityService.updateStatus(id, status);

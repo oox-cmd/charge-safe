@@ -77,6 +77,53 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
+    public Set<String> listPermissionCodesByUserId(Long userId) {
+        List<SysUserRole> userRoles = userRoleMapper.selectList(
+                new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId));
+        if (userRoles.isEmpty()) {
+            return Set.of();
+        }
+
+        List<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).distinct().toList();
+        List<SysRole> roles = roleMapper.selectBatchIds(roleIds);
+        boolean platformAdmin = roles.stream()
+                .anyMatch(role -> "PLATFORM_ADMIN".equals(role.getRoleCode()) && Objects.equals(role.getStatus(), 1));
+
+        // 平台管理员拥有所有启用的权限码
+        if (platformAdmin) {
+            return menuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
+                            .eq(SysMenu::getStatus, 1)
+                            .isNotNull(SysMenu::getPermissionCode)
+                            .select(SysMenu::getPermissionCode))
+                    .stream()
+                    .map(SysMenu::getPermissionCode)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
+
+        // 非管理员：根据角色菜单关联查询权限码
+        List<Long> menuIds = roleMenuMapper.selectList(
+                        new LambdaQueryWrapper<SysRoleMenu>().in(SysRoleMenu::getRoleId, roleIds))
+                .stream()
+                .map(SysRoleMenu::getMenuId)
+                .distinct()
+                .toList();
+        if (menuIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return menuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
+                        .in(SysMenu::getId, menuIds)
+                        .eq(SysMenu::getStatus, 1)
+                        .isNotNull(SysMenu::getPermissionCode)
+                        .select(SysMenu::getPermissionCode))
+                .stream()
+                .map(SysMenu::getPermissionCode)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
     @Transactional
     public MenuVO create(MenuCreateDTO dto) {
         ensurePermissionUnique(dto.getPermissionCode(), null);
