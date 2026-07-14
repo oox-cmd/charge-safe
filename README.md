@@ -321,10 +321,6 @@ java -jar /opt/charge-safe/charge-safe-backend.jar
 - 修复 `operation_log` 表缺少 `module`、`url`、`duration` 列的问题
 - 修复 `ChargeSafeApplication` MapperScan 未包含 `common` 包导致 `OperationLogMapper` 注入失败
 
-**清理**
-- 删除误上传的 `团委组织部副部长换届答辩评委评分表_修正版.pdf` 文件
-- 从 git 历史中彻底移除该文件（git filter-branch）
-
 ### v0.8.0 (2026-07-04) — 小程序核心原型
 
 **小程序端**
