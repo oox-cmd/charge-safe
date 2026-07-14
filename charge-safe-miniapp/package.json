@@ -1,6 +1,10 @@
 {
   "name": "uni-preset-vue",
   "version": "0.0.0",
+  "packageManager": "npm@10.9.8",
+  "engines": {
+    "npm": ">=10 <11"
+  },
   "scripts": {
     "dev:custom": "uni -p",
     "dev:h5": "uni",
@@ -54,7 +58,7 @@
     "@dcloudio/uni-quickapp-webview": "3.0.0-5000720260410001",
     "vue": "^3.4.21",
     "vue-i18n": "^9.1.9",
-    "pinia": "^2.1.7"
+    "pinia": "2.2.4"
   },
   "devDependencies": {
     "@dcloudio/types": "^3.4.8",

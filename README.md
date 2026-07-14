@@ -110,68 +110,135 @@ charge-safe/
 
 ## 快速开始
 
-### 1. 克隆项目
+### 1. 环境要求
+
+- Git
+- JDK 17
+- Maven 3.8+
+- Node.js 20.19+（同时满足管理端 Vite 8 和小程序端 Vite 5）
+- npm
+- MySQL 8.x；当前开发机器实际使用 MySQL 9.7
+
+本地开发使用 Maven、Node.js、npm 和原生 MySQL，不要求 Docker。
+
+### 2. 克隆项目
 
 ```bash
 git clone https://github.com/wangsf134/charge-safe.git
 cd charge-safe
 ```
 
-### 2. 创建本地数据库
+### 3. 准备本地数据库
+
+本地开发统一使用 Windows 原生 MySQL。推荐 MySQL 8.x；当前开发机器实际使用
+MySQL 9.7。本阶段按当前本地开发环境配置，不对其他 MySQL 版本作兼容性保证。
+
+以下数据库账号和密码仅限本地开发和课程演示，不得用于生产或云端数据库。应用
+必须使用专用账号，不要使用 MySQL root 账号运行 ChargeSafe。
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS charge_safe_dev DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-mysql -u root -p -e "CREATE USER IF NOT EXISTS 'charge_safe_app'@'%' IDENTIFIED BY 'cugb666';"
-mysql -u root -p -e "GRANT ALL PRIVILEGES ON charge_safe_dev.* TO 'charge_safe_app'@'%';"
-mysql -u root -p -e "FLUSH PRIVILEGES;"
+CREATE DATABASE IF NOT EXISTS charge_safe_dev
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_general_ci;
+
+CREATE USER IF NOT EXISTS 'charge_safe_app'@'localhost'
+  IDENTIFIED BY 'cugb666';
+
+GRANT ALL PRIVILEGES ON charge_safe_dev.*
+  TO 'charge_safe_app'@'localhost';
 ```
 
-### 3. 启动后端 (本地开发)
+只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V5，也不要执行根目录
+`sql/schema.sql` 或 `sql/data.sql`。后端启动时会由 Flyway 自动校验已执行迁移并
+执行 pending migration；存在 pending migration 是正常升级状态，不代表迁移异常。
+
+### 4. 构建和启动后端
+
+Windows 直接运行：
 
 ```bash
 cd charge-safe-backend
+mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-Flyway 会自动初始化数据库表结构和初始数据（V1 ~ V5）。
+WSL2 NAT 模式下直接运行：
 
-后端运行在 `http://localhost:8080`，API 文档：`http://localhost:8080/doc.html`
+```bash
+bash ./scripts/dev-backend-wsl.sh
+```
 
-### 4. 启动 Web 管理端
+该脚本动态读取 WSL 默认网关作为 Windows 主机地址，不写死个人 IP。Windows
+防火墙应仅允许当前 WSL 虚拟子网访问 TCP 3306，MySQL 应为该子网配置
+`charge_safe_app` Host 权限，不要向所有公网来源开放。
+
+补充生产包构建：
+
+```bash
+cd charge-safe-backend
+mvn clean package
+```
+
+Flyway 会自动初始化或升级数据库结构和初始数据。启动后可只读检查：
+
+```sql
+SELECT installed_rank, version, description, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+后端运行在 `http://127.0.0.1:8080`，API 文档为
+`http://127.0.0.1:8080/doc.html`。
+
+### 5. 构建和启动 Web 管理端
 
 ```bash
 cd charge-safe-admin
-npm install
+npm ci
 npm run dev
 ```
 
-浏览器打开 `http://localhost:3000`
+开发服务器使用 `http://127.0.0.1:3000`。管理端请求保持为相对 `/api`，Vite
+开发代理将其转发到 `http://127.0.0.1:8080`。如确有需要，可在管理端本地环境
+文件中设置可选的 `VITE_API_BASE_URL`；生产地址不得写死为 localhost。
 
-### 5. 可视化大屏
+```bash
+cd charge-safe-admin
+npm run build
+```
 
-管理端启动后，访问 `http://localhost:3000/bigscreen` 进入全屏可视化大屏。
+### 6. 可视化大屏
 
-### 6. 小程序端
+管理端启动后，访问 `http://127.0.0.1:3000/bigscreen` 进入全屏可视化大屏。
 
-**方式一：H5 浏览器预览 (推荐调试)**
+### 7. 小程序端
+
+小程序当前 Vue/uni-app 依赖链固定使用 npm 10.9.8。无需卸载或降级电脑中的
+全局 npm；即使默认安装的是 npm 11，也通过 `npx` 调用项目指定的 npm 10。
+不要使用 `--force` 或 `--legacy-peer-deps`。此限制只适用于小程序，管理端继续
+使用其自身已验证的 npm 流程。
+
+PowerShell 或 WSL：
 
 ```bash
 cd charge-safe-miniapp
-npm install
-npm run dev:h5
+npx npm@10.9.8 ci
+npx npm@10.9.8 run build:mp-weixin
 ```
 
-浏览器打开 `http://localhost:5173`
+构建产物位于 `charge-safe-miniapp/dist/build/mp-weixin`，可使用微信开发者工具
+导入。以上命令已在无 Docker 的 WSL 环境实际验证。
 
-**方式二：微信小程序**
+H5 调试使用真实存在的脚本：
 
 ```bash
 cd charge-safe-miniapp
-npm install
-npm run build:mp-weixin
+npx npm@10.9.8 ci
+npx npm@10.9.8 run dev:h5
 ```
 
-用微信开发者工具导入 `charge-safe-miniapp/dist/build/mp-weixin` 目录。
+浏览器打开开发服务器输出的实际地址。其他平台脚本以
+`charge-safe-miniapp/package.json` 中现有的 `dev:*` 和 `build:*` 为准。
 
 ## 默认账号
 
@@ -227,7 +294,8 @@ npm run build:mp-weixin
 
 ## 数据库迁移
 
-项目使用 Flyway 管理数据库迁移，迁移文件位于：
+项目使用 Flyway 管理数据库迁移。`application.yml` 显式配置
+`classpath:db/migration`，对应的唯一正式迁移目录为：
 
 ```
 charge-safe-backend/src/main/resources/db/migration/
@@ -244,6 +312,27 @@ charge-safe-backend/src/main/resources/db/migration/
 2. 不允许手动改库后只口头同步
 3. 不允许业务代码启动时自动 DROP 表
 4. 本地库、云端开发库、云端正式库的表结构由同一套迁移文件生成
+5. 不要求团队成员手动逐个执行 V1 至 V5
+6. 不得同时执行 `sql/schema.sql`、`sql/data.sql` 和 Flyway
+7. 根目录 `sql/schema.sql`、`sql/data.sql` 不符合 Flyway 命名规则，也未被当前
+   MySQL Profile 或启动脚本自动引用；它们仅保留作参考，默认流程不得执行
+8. 已发布的 V1 至 V5 不得移动、重命名、修改内容或版本号
+9. Flyway 在后端启动时自动校验历史并执行 pending migration；pending 不等于异常
+10. 不得手工修改 `flyway_schema_history`，也不得随意执行 repair、baseline 或 clean
+
+H2 Profile 是独立机制：`application-h2.yml` 会关闭 Flyway，并使用
+`classpath:db/h2/schema.sql` 和 `classpath:db/h2/data.sql`。Windows MySQL 和
+WSL 本地开发均不使用该 H2 初始化流程。
+
+### 团队复现流程
+
+1. 安装并启动 MySQL；推荐 8.x，当前开发机器实际使用 9.7
+2. 使用本文记录的本地开发专用账号和密码
+3. 创建空数据库 `charge_safe_dev`
+4. 确保 `charge_safe_app` 对该数据库具有所需权限
+5. 启动后端，不手动执行根目录 `sql/` 下的脚本
+6. 等待 Flyway 从 `charge-safe-backend/src/main/resources/db/migration/` 自动执行所有 pending migration
+7. 检查 `flyway_schema_history`，确认所有迁移成功
 
 ## 特别注意
 
