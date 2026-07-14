@@ -3,6 +3,7 @@
 > 审查日期：2026-07-14
 > 代码基线：`d0c624975fb33fb8ebda50b7d3f1ab0847b12ff4`（`main` 与 `origin/main` 一致）
 > 性质：中期事实基线，不是最终交付结论。
+> 状态更新：2026-07-15 已关闭 JWT 认证过滤器 fail-open 路径；修复提交待本次提交生成。其余审查结论除明确标记外不变。
 
 ## 1. 审查范围与方法
 
@@ -20,7 +21,7 @@
 | 数据库 | Windows 原生 MySQL 为本地开发主方案；WSL 脚本动态解析 Windows 网关 | `README.md`、`application-local.yml`、`scripts/dev-backend-wsl.sh` |
 | 迁移 | `classpath:db/migration`，真实目录含 V1 至 V5 | `application.yml`、`src/main/resources/db/migration/` |
 | 容器 | 当前仓库没有 Compose、Dockerfile 或 Docker Profile；本地开发不要求 Docker | 全仓库文件清单、`README.md` |
-| 测试 | 2 个测试类、16 个测试；当前 JDK 21 下 15 个 Mockito 用例因 agent 自附加失败，菜单树 1 项通过 | `src/test/java/`、2026-07-14 `mvn clean test` |
+| 测试 | 3 个测试类、28 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、2026-07-15 验证记录 |
 
 `application-h2.yml` 和 H2 SQL 存在，但 `pom.xml` 没有 H2 依赖，不能据此声称 H2 测试环境可运行。
 
@@ -39,7 +40,7 @@
 | 统计分析 | 基本实现 | 6 个聚合接口和统计页面存在，但缺少三维专用数据 |
 | 设备模拟 | 基本实现 | 4 个模拟接口和管理端页面存在，仅用于演示 |
 | 管理端业务 CRUD | 基本实现 | 主要业务页面已接后端，仍有权限与体验缺口 |
-| 登录认证 | 部分实现 | JWT 生成/解析存在，但过滤器对缺失或无效 Token 继续放行 |
+| 登录认证 | 基本实现（fail-open 已修复） | JWT 生成/解析存在；除 `POST /api/auth/login` 外，缺失、格式错误或无效 Token 均由过滤器直接返回统一 HTTP 401；HTTP 安全测试覆盖用户缺失、禁用、权限不足与上下文清理 |
 | 角色、菜单与权限 | 部分实现 | RBAC 结构存在；前端权限码与后端/迁移有 8 组不一致 |
 | 预约与充电 | 部分实现 | 后端主流程较完整；小程序仍以本地定时器和静态数据演示 |
 | 报修与工单 | 部分实现 | 后端流程存在；小程序提交与列表未真实接入 |
@@ -61,8 +62,8 @@
 
 ## 5. 安全与一致性发现
 
-1. `JwtAuthenticationFilter` 只在 Token 有效时填充上下文，对缺失/无效 Token 不返回 401；未带权限注解且未自行检查上下文的 `/api/*` 端点存在匿名访问面。
-2. `SecurityConfig` 依赖自定义过滤器，没有建立统一的已认证请求规则。
+1. 历史问题（2026-07-15 已修复）：`JwtAuthenticationFilter` 曾只在 Token 有效时填充上下文，对缺失/无效 Token 继续放行。当前过滤器将 `POST /api/auth/login` 作为唯一 `/api/*` 匿名白名单，其余请求缺失、格式错误或无效 Token 时清理 `UserContext`、返回统一 HTTP 401，并停止 filter chain；证据为 `JwtAuthenticationFilter.java` 与 `JwtAuthenticationFilterHttpTest.java`。
+2. `SecurityConfig` 仍使用项目既有的自定义 Servlet 过滤器注册方式；本次未引入 Spring Security Web，也未改变权限码体系。认证失败由过滤器返回 HTTP 401，已认证但无业务权限仍由 `PermissionAspect` 和既有响应机制处理。
 3. `WebConfig` 使用宽泛的跨域来源模式并允许凭据，正式部署前必须收紧。
 4. `application.yml` 含可用的 JWT 默认值；本地示例可保留占位符，但运行配置应要求环境变量。
 5. 管理端 `system:*:add/edit/reset-pwd/toggle-status` 与后端/迁移的 `create/update/reset-password/status` 不一致。
@@ -119,9 +120,9 @@
 
 当前未发现必须在本轮立即破坏性处理的 P0；这不代表已可最终交付。
 
-### P1（8 项，下一阶段必须处理）
+### P1（8 项：1 项已完成，7 项待处理）
 
-1. 后端认证过滤器 fail-open。
+1. ~~后端认证过滤器 fail-open。~~ **已于 2026-07-15 修复并通过 12 项 HTTP 安全测试、28 项完整后端测试及本地运行态冒烟；提交哈希待本次提交生成。**
 2. 前端与后端权限码不一致。
 3. 小程序 Mock 无条件启用。
 4. 小程序 `localhost` 地址不可用于真机。

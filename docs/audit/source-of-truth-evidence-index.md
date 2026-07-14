@@ -2,6 +2,7 @@
 
 > 基线：`d0c624975fb33fb8ebda50b7d3f1ab0847b12ff4`
 > 用途：把“代码事实”与中期文档章节绑定。计划文档不构成实现证据。
+> 增量更新：2026-07-15 JWT fail-open 修复，提交待本次提交生成。
 
 ## 1. 源码事实矩阵
 
@@ -9,7 +10,7 @@
 | --- | --- | --- | --- | --- |
 | 项目目标 | 社区电动自行车充电安全运维，课程演示，不接真实硬件 | `README.md` 项目边界 | 基本一致 | 作为范围唯一来源 |
 | 角色 | PLATFORM_ADMIN、PROPERTY_ADMIN、MAINTAINER、INSPECTOR、RESIDENT | `DataScope.java`、V2/V3 | 一致 | 文档统一用枚举码 |
-| 认证 | JWT + UserContext；过滤器未强制认证 | `JwtAuthenticationFilter.java`、`SecurityConfig.java` | 文档通常高估安全性 | 明确 fail-open 风险 |
+| 认证 | JWT + `UserContext`；`POST /api/auth/login` 可匿名，其余 `/api/*` 缺失、格式错误、无效、过期或失效用户 Token 时返回统一 HTTP 401 且不进入 Controller；请求开始和结束均清理上下文 | `charge-safe-backend/src/main/java/com/chargesafe/security/JwtAuthenticationFilter.java`、`charge-safe-backend/src/test/java/com/chargesafe/security/JwtAuthenticationFilterHttpTest.java`、`SecurityConfig.java` | fail-open 已关闭；权限码不一致仍未处理 | 保持认证 401 与既有权限不足结果分离，后续单独统一权限码 |
 | 权限 | 注解/AOP/菜单权限存在；前后端 8 组权限码不一致 | `PermissionAspect.java`、`usePermission.js`、V3/V5 | 不一致 | 先做权限码字典 |
 | 社区 | CRUD、状态、经纬度 | `CommunityController.java`、V4 | 已实现 | 经纬度只作近似定位 |
 | 车棚 | CRUD、社区归属 | `ParkingAreaController.java`、`parking_area` | 已实现 | 三级大屏称“站点”前需统一术语 |
@@ -24,7 +25,7 @@
 | 数据库 | 23 张 Flyway 建表；逻辑关联，无物理外键 | V1、V3 | 设计文档过时 | 以迁移为唯一结构来源 |
 | Flyway | V1-V5，`classpath:db/migration` | `application.yml`、migration 目录 | 一致 | 禁止改已发布迁移 |
 | 本地开发 | Windows MySQL；WSL 动态网关 | local profile、WSL 脚本 | README 较准确 | 保持无 Docker |
-| 测试 | 16 项集中于 charging/menu | `src/test/java` | 覆盖不足 | 建测试矩阵 |
+| 测试 | 28 项：charging 15、menu 1、JWT HTTP 安全边界 12；2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `charge-safe-backend/src/test/java/`、`JwtAuthenticationFilterHttpTest.java` | 认证边界已有回归测试，其他模块覆盖仍不足 | 继续扩展权限、统计、工单和巡检测试；不把本次认证修复外推为权限码已统一 |
 
 ## 2. 后端接口映射
 
