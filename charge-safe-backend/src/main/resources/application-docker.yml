@@ -1,0 +1,16 @@
+# Docker 环境配置
+# 在 Docker 容器中运行时使用此配置
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.chargesafe: info
+    org.flywaydb: info

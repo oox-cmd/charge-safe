@@ -1,0 +1,61 @@
+# ChargeSafe 项目 Docker 编排文件
+# 使用方法: docker compose up -d
+
+services:
+  # ========== MySQL 数据库 ==========
+  mysql:
+    image: mysql:8.0
+    container_name: chargesafe-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: charge_safe_dev
+      MYSQL_USER: charge_safe_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:-cugb666}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== 后端服务 ==========
+  backend:
+    build:
+      context: ./charge-safe-backend
+      dockerfile: Dockerfile
+    container_name: chargesafe-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/charge_safe_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: charge_safe_app
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-cugb666}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ========== 前端管理后台 ==========
+  admin:
+    build:
+      context: ./charge-safe-admin
+      dockerfile: Dockerfile
+    container_name: chargesafe-admin
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
+    driver: local
