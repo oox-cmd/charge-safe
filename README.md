@@ -209,7 +209,9 @@ npm run build
 
 ### 6. 可视化大屏
 
-管理端启动后，访问 `http://127.0.0.1:3000/bigscreen` 进入全屏可视化大屏。
+管理端启动后，当前可访问 `http://127.0.0.1:3000/bigscreen` 进入二维可视化大屏。
+源码中该路由目前仍配置为匿名访问，这是下一阶段必须修复的 P1 安全问题，不代表既定访问策略。
+已确认的目标是把大屏纳入管理端现有登录、菜单和权限体系；教师演示若需要免登录，后续单独设计受限演示模式，不得绕过认证过滤器或权限体系。
 
 ### 7. 小程序端
 
@@ -563,43 +565,53 @@ java -jar /opt/charge-safe/charge-safe-backend.jar
 
 ### 当前开发阶段
 
-**P0 功能已完成，进入前端体验优化阶段。**
+**项目处于中期开发阶段：后端 P0 业务基础基本完成，跨端真实闭环、前端体验和三级三维大屏仍在规划与开发中；当前不是最终交付状态。**
 
 根据审查，当前前端整体 AI 味过重，需要进行 UI/UX 整改。详见：
 - `docs/audit/overall-function-and-experience-audit.md` — 功能与体验总审查
 - `docs/audit/frontend-ui-ai-flavor-audit.md` — AI 味问题清单
 - `docs/audit/new-frontend-design-guidelines.md` — 新设计规范
 - `docs/tasks/frontend-polish-and-fix-execution-plan.md` — 整改执行计划
+- `docs/audit/midterm-development-baseline-audit.md` — 当前源码事实基线
+- `docs/research/three-level-dashboard-open-source-research.md` — 三级大屏技术与免费资产调研
+- `docs/tasks/next-stage-development-roadmap.md` — 下一阶段开发顺序
 
 ### Skills 使用
 
-项目已集成以下 Skills，开发时必须参考：
+前端和大屏工作优先使用当前开发者用户级 Codex Skills；项目仓库不重复保存这些工具：
 
-| Skill | 用途 | 路径 |
+| Skill | 用途 | 用户级路径 |
 |-------|------|------|
-| ui-ux-pro-max | UI/UX 设计标准 | `skills/ui-ux-pro-max/` |
-| frontend-design | 避免 AI 味的设计原则 | `skills/anthropic-skills/skills/frontend-design/` |
-| superpowers | 核心开发技能库 | `skills/superpowers/` |
-| systematic-debugging | 系统化调试流程 | `skills/superpowers/skills/systematic-debugging/` |
-| verification-before-completion | 完成前验证 | `skills/superpowers/skills/verification-before-completion/` |
+| ui-ux-pro-max | UI/UX 信息层级、可用性和设计系统 | `~/.codex/skills/ui-ux-pro-max/` |
+| frontend-design | 避免模板化和无意义装饰 | `~/.codex/skills/frontend-design/` |
+| systematic-debugging | 源码、接口、数据库和文档不一致调查 | `~/.codex/skills/systematic-debugging/` |
+| verification-before-completion | 完成前执行新鲜验证 | `~/.codex/skills/verification-before-completion/` |
 
-**全局安装（推荐）：**
-```bash
-# 将 skills 复制到全局目录
-cp -r skills/superpowers/skills/* ~/.claude/skills/
-cp -r skills/ui-ux-pro-max/ ~/.claude/skills/ui-ux-pro-max/
-cp -r skills/anthropic-skills/skills/frontend-design/ ~/.claude/skills/frontend-design/
-```
+Skills 按任务触发，不要求团队成员把全局 Skills 复制进仓库，也不存在必须加载的 `skills/superpowers/SKILL.md`。
 
 ### 下一步开发重点
 
-1. **阶段 1**：演示级功能修复（预约流程、大屏数据对接）
-2. **阶段 2**：管理端 UI 统一（搜索区、状态标签、按钮样式）
-3. **阶段 3**：统计分析页重构（业务问题导向）
-4. **阶段 4**：大屏整页重构（端口状态矩阵为核心）
-5. **阶段 5**：小程序体验重构（首页主路径、车棚详情）
+1. **阶段 1**：认证、权限和小程序核心业务闭环补全
+2. **阶段 2**：建立真实站点/端口统计口径和只读接口
+3. **阶段 3**：三级大屏 MVP（地球 → 小区 → 单站端口）
+4. **阶段 4**：管理端 UI/UX 系统整改
+5. **阶段 5**：三级大屏推荐演示版本
+6. **阶段 6**：小程序体验重构和真机验收
+7. **阶段 7**：测试、性能、文档和演示准备
 
-详见 `docs/tasks/frontend-polish-and-fix-execution-plan.md`
+详见 `docs/tasks/next-stage-development-roadmap.md`。三级大屏是下一阶段展示重点，模型优先采用免费、合法、许可证清晰的 CC0/开源资源；未经许可证确认不得下载后提交到仓库。当前尚未开始最终交付文档定稿，相关文档必须随代码和验证结果持续更新。
+
+### 三级大屏已确认技术边界
+
+- MVP 使用原生 Three.js + `three-globe`；Vue 负责页面、状态和生命周期，Three.js 封装在独立组件、模块和 composable 中。
+- 当前不采用 Globe.GL、TresJS、MapLibre 或 Cesium，也不并行维护两套 Three.js 实现；只有真实 GIS 需求成立后才重新评估 MapLibre。
+- 大屏默认位于管理端并使用现有认证、菜单和权限体系；当前 `/bigscreen` 匿名路由属于待修复现状，不是目标设计。
+- 小区采用非测绘级低多边形示意场景，程序化生成道路、建筑、地面和站点布局；场景坐标保存在前端配置中，不伪装成经纬度。
+- 站点特写不以购买或找到完整模型为前置条件，优先程序化搭建棚体、柜体、充电位、端口和状态锚点，再组合少量免费模块化资产。
+- MVP 只使用许可证清晰的 CC0 资产；CC BY 仅作后备，必须逐项确认作者、来源、许可证和署名方式。许可证未知、仅限个人用途、禁止再分发、All Rights Reserved、盗提、带水印、CC BY-NC 和 CC BY-ND 资产不得采用。
+- 后端提供真实业务 ID 与状态，三维坐标暂存前端场景配置；当前不新增数据库字段或 Flyway 迁移。模型节点名不得作为唯一业务 ID。
+- 端口实际有 9 种后端状态，前端先建立原始状态到大屏分组、颜色、图标和告警语义的完整映射，不修改后端状态迎合视觉规范。
+- MVP 使用可配置的 10 至 15 秒轮询，页面隐藏时暂停轮询和渲染；暂不引入 WebSocket 或 SSE。
 
 ### 设计规范摘要
 
@@ -615,8 +627,12 @@ cp -r skills/anthropic-skills/skills/frontend-design/ ~/.claude/skills/frontend-
 | IDLE (空闲) | 绿色 | #22c55e |
 | RESERVED (已预约) | 蓝色 | #3b82f6 |
 | CHARGING (充电中) | 橙色 | #f59e0b |
+| COMPLETED_WAITING_PICKUP (待取车) | 紫色 | #8b5cf6 |
+| OVERTIME_OCCUPIED (超时占位) | 深橙色 | #f97316 |
 | FAULT (故障) | 红色 | #ef4444 |
 | MAINTENANCE (维修中) | 灰色 | #94a3b8 |
+| DISABLED (停用) | 深灰色 | #64748b |
+| OFFLINE (离线) | 暗灰色 | #475569 |
 
 详见 `docs/audit/new-frontend-design-guidelines.md`
 
@@ -632,3 +648,10 @@ cp -r skills/anthropic-skills/skills/frontend-design/ ~/.claude/skills/frontend-
 | 前端页面设计 | `docs/design/frontend-page-design.md` | 页面设计说明 |
 | 大屏设计 | `docs/design/dashboard-visual-design.md` | 大屏可视化设计 |
 | 小程序设计 | `docs/design/miniapp-page-design.md` | 小程序页面设计 |
+| 中期事实基线 | `docs/audit/midterm-development-baseline-audit.md` | 当前完成度与风险 |
+| 源码证据索引 | `docs/audit/source-of-truth-evidence-index.md` | 接口、页面、数据库和构建证据 |
+| 三级大屏调研 | `docs/research/three-level-dashboard-open-source-research.md` | 技术、项目、资产与许可证候选 |
+| 大屏数据建模 | `docs/research/dashboard-data-and-scene-modeling.md` | 状态机、DTO 和场景映射 |
+| 大屏实施计划 | `docs/tasks/three-level-dashboard-implementation-plan.md` | MVP、演示版、增强版 |
+| 下一阶段路线 | `docs/tasks/next-stage-development-roadmap.md` | 中期后续开发顺序 |
+| 过程文档计划 | `docs/process/development-process-documentation-plan.md` | 日志、ADR、资产与验收模板 |

@@ -1,0 +1,104 @@
+# ChargeSafe 下一阶段开发路线图
+
+> 当前是中期开发。此路线按业务真实性优先，三级大屏是展示重点，但不越过数据与安全前置条件。
+
+## 1. 阶段总览
+
+| 阶段 | 目标 | 核心产物 | 退出条件 |
+| --- | --- | --- | --- |
+| 1. 核心闭环补全 | 解决认证/权限与小程序假闭环 | 安全测试、真实小程序预约/充电/报修 | 核心跨端流程使用真实 ID/API |
+| 2. 统计数据基础 | 明确指标与站点/端口 DTO | 口径表、只读统计接口、测试 | 大屏不再生成端口/告警 |
+| 3. 三级大屏 MVP | 打通三层状态机和真实状态绑定 | 程序化三层原型 | 三层往返、失败降级、性能初测 |
+| 4. 管理端 UI/UX 整改 | 降低模板化，提高任务效率 | 设计 tokens、页面模式、关键页改造 | 关键角色任务可用性复核 |
+| 5. 大屏推荐演示版 | 加入筛选资产和自然转场 | 优化场景、资产台账、性能报告 | 目标演示机稳定、2 分钟讲解闭环 |
+| 6. 小程序体验重构 | 围绕找车棚与充电决策 | 首页/详情/状态/错误重构 | 真机主路径验收 |
+| 7. 测试与演示准备 | 建稳定绿线和交接证据 | 构建、接口、权限、E2E、演示脚本 | 无 P0/P1，文档与代码同步 |
+
+## 2. 阶段 1：核心业务闭环补全
+
+1. 为 `/api/*` 建明确认证规则，补无 Token/无效 Token/跨角色测试。
+2. 统一迁移、后端注解、管理端指令中的权限码与菜单字段。
+3. 把小程序 Mock 设为显式开发开关，真实构建不无条件安装拦截器。
+4. 使 API baseURL 可配置并支持真机局域网调试。
+5. 对接密码登录、车棚/端口、预约、充电、订单、报修、通知；不存在的短信/注册能力先隐藏或单独立项。
+
+## 3. 阶段 2：统计与数据口径
+
+- 明确“站点=parking_area”是否成立。
+- 增加站点全状态汇总与真实端口列表 DTO。
+- 告警数据源在 `alarm_record`、故障端口、隐患之间做产品决策。
+- 所有大屏指标记录时间范围、过滤条件、DataScope、空值行为。
+- 不新增场景坐标迁移；先以配置验证。
+
+## 4. 阶段 3/5：大屏
+
+按 `three-level-dashboard-implementation-plan.md` 先 MVP、后推荐演示版。MVP 固定使用原生 Three.js + `three-globe`、管理端登录后访问、程序化低多边形小区/站点、前端场景坐标和 10-15 秒可配置轮询。每次只保留一个渲染主场景；模型质量低于业务状态优先级。MVP 只使用 CC0，外部资产进入仓库前必须有许可证记录和用户确认。
+
+## 5. 阶段 4：管理端整改
+
+优先顺序：
+
+1. 登录/权限错误与全局错误反馈；
+2. 物业工作台与统计页，使其回答“哪里异常、要处理什么”；
+3. 车棚/端口空间化状态表达；
+4. 报修、工单、巡检的任务流页面；
+5. 系统 CRUD 的模式统一与去卡片堆叠；
+6. 部门、设备分类演示页标识或移除决策。
+
+使用 `ui-ux-pro-max` 和 `frontend-design`，避免高饱和科技蓝、卡片套卡片、emoji 结构图标、无意义渐变与动效。
+
+## 6. 阶段 6：小程序体验
+
+主信息架构固定为：选择/定位社区 → 找到可用车棚 → 比较端口状态 → 预约 → 到场充电 → 结束/记录 → 异常报修。加载、空、错误和权限拒绝均需真机验证；不把 Mock toast 当业务成功。
+
+## 7. 阶段 7：测试与演示
+
+- 在 JDK 17 基线运行后端测试并解决当前 Mockito agent 环境问题。
+- 后端增加权限、统计、工单、巡检和异常路径测试。
+- 管理端增加关键 store/router/API 契约测试与浏览器冒烟。
+- 小程序至少增加 API/状态流测试与微信开发者工具验收记录。
+- 记录目标机器、浏览器、分辨率、构建哈希和测试日期。
+
+## 8. 优先级清单
+
+| 优先级 | 事项 |
+| --- | --- |
+| P1 | 认证 fail-open、权限码、Mock 强制、小程序真实闭环、大屏假数据、JDK 17 测试绿线 |
+| P2 | 站点/端口统计、告警来源、三级 MVP、UI 一致性、文档事实更新 |
+| P3 | 地图增强、时间轴、WebSocket、精细模型、全量无障碍和包体深度优化 |
+
+## 9. 变更纪律
+
+- V1-V5 永不修改；需要数据库变化从新版本开始。
+- 需求、架构、资产和指标决策分别写 ADR/变更记录。
+- 每阶段在合并前更新事实矩阵和验证记录。
+- 不把“构建通过”“页面存在”“计划列出”当作业务完成。
+
+## 10. 第一批 P1 精确实施计划
+
+### 10.1 安全与正确性修复
+
+| 任务 | 源码证据 | 影响 | 建议修改文件 | 测试方式 | 验收标准 | 前置依赖 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 认证过滤器 fail-open | `charge-safe-backend/src/main/java/com/chargesafe/security/JwtAuthenticationFilter.java` 捕获认证异常后仍调用 filter chain；`SecurityConfig.java` 只注册过滤器 | 缺失/无效 Token 可能访问未做上下文检查的 `/api/*` | `JwtAuthenticationFilter.java`、认证白名单配置；新增 security/filter 测试 | MockMvc 覆盖公开登录、无 Token、无效/过期 Token、有效 Token、上下文清理；JDK 17 执行 `mvn test` | 明确白名单可匿名；其他 API 无有效 Token 返回 401；不因权限加载异常获得匿名放行 | 先列出全部公开端点；不改登录契约 |
+| 权限码不一致 | `UserController.java` 等使用 `system:*:create/update/status/reset-password`；管理端多个页面使用 `add/edit/toggle-status/reset-pwd`；`V3__add_menu_tables.sql` 为既有事实 | 按钮错误隐藏或后端拒绝，角色授权不可预测 | `charge-safe-admin/src/views/**` 的 `v-permission`、`charge-safe-admin/src/composables/usePermission.js` 或权限字典模块；必要的契约测试。禁止修改 V1-V5 | 从 Controller 注解与当前菜单数据生成对照；角色登录后验证按钮和 403；前端构建 | 前端使用后端/菜单现有权限码；无重复别名；各角色允许/拒绝结果有测试记录 | 先冻结唯一权限码清单；迁移文件只读 |
+
+### 10.2 核心业务闭环
+
+| 任务 | 源码证据 | 影响 | 建议修改文件 | 测试方式 | 验收标准 | 前置依赖 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 小程序 Mock 无条件启用 | `charge-safe-miniapp/src/main.js` 无条件 `import '@/api/mock'`；`src/api/request.js` 的 `USE_MOCK` 未控制安装 | 任何构建都可能被本地 Mock 截获，无法证明真实联调 | `src/main.js`、`src/api/mock/index.js`、Vite/uni-app 环境示例 | npm 10.9.8 下分别构建 Mock 开/关；关闭时抓取请求确认未注册拦截器 | 默认真实构建不加载 Mock；只有显式开发开关才启用；界面明确标识 Mock 模式 | 先确定环境变量命名与平台注入方式 |
+| 小程序真机 API 地址 | `charge-safe-miniapp/src/api/request.js` 和 `src/api/user.js` 写死 `http://localhost:8080` | 真机的 localhost 指向手机自身，登录、上传和业务接口全部失败 | `src/api/request.js`、`src/api/user.js`，新增安全的环境示例/说明 | H5 与微信开发者工具分别验证相对/可配置 base URL；真机局域网只读冒烟；npm 10.9.8 构建 | API 与上传共用一个可配置来源；开发机地址不进入生产包；错误信息包含可诊断目标但不泄密 | 需要开发机 LAN/HTTPS 调试约束和微信合法域名策略 |
+| 预约、充电核心闭环 | 后端 `ChargingController.java`、`ChargingServiceImpl.java` 已有预约、取消、开始、结束和订单；小程序 `pages/reservation/**`、`pages/charging/**`、`pages/order/**` 使用定时器/本地数组 | 用户路径可点击但未改变真实预约、订单和端口状态 | `charge-safe-miniapp/src/api/charging.js`（现状 API 文件按实际复用/新增）、预约/充电/订单页面与 store；后端仅在发现真实契约缺口时最小修复 | 后端服务/Controller 测试；小程序 API 契约测试；真实库中按测试账号完成预约→开始→结束并只读核对状态 | 全程使用真实 `portId`、`reservationId`、`orderId`；取消/超时/重复提交有错误状态；不以本地计时器伪造成功 | 认证和 API 地址先完成；确定站点=车棚术语与测试数据清理方案 |
+
+### 10.3 大屏数据基础
+
+| 任务 | 源码证据 | 影响 | 建议修改文件 | 测试方式 | 验收标准 | 前置依赖 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 真实站点和端口数据口径 | `StatisticsController.java` 只有聚合接口；`views/bigscreen/Index.vue` 由聚合数生成假端口；真实状态在 `PortStatus.java` 有 9 种 | 三级站点无法绑定真实端口，静态告警可能被误认为实时 | statistics 或独立 dashboard Controller/Service/VO/Mapper 查询、对应测试；`dashboard-data-and-scene-modeling.md` | Repository/Service/Controller 测试覆盖 DataScope、空站点、9 状态计数和端口 ID；与数据库只读聚合交叉核对 | 返回真实 community/station(device/parking-area 术语待定)/device/port ID、9 状态、`updatedAt`；汇总等于明细；不返回敏感字段 | 登录与权限边界完成；确认站点实体和告警来源；当前不新增迁移 |
+
+### 10.4 三级场景前端原型（上述 P1 通过后的下一切片）
+
+| 任务 | 源码证据 | 影响 | 建议修改文件 | 测试方式 | 验收标准 | 前置依赖 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 原生 Three.js + three-globe MVP 骨架 | 当前只有 `charge-safe-admin/src/views/bigscreen/Index.vue` 二维页，`package.json` 无 Three 依赖 | 为三级转场提供隔离、可测试的基础，避免继续膨胀单文件 | 经依赖评审后新增 `views/bigscreen3d/` 下 scene/composable/config/domain/component；路由与菜单按现有体系接入 | 状态机单测、资源 dispose 测试、路由权限测试、构建；手工连续切换 20 次和 WebGL 降级 | 登录后可进入；地球→小区→站点→返回可用；真实 ID 显式映射；无 Mock 状态冒充真实数据 | 前五项通过；用户确认视觉稿与 CC0 资产；另行批准依赖变更 |
