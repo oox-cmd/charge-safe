@@ -248,3 +248,16 @@ V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTA
 | 测试 | Java 21 下 47/47；管理端与小程序构建通过；核心闭环异常和跨端契约覆盖不足 | 基线稳定，但收尾验证未完成 |
 
 重新审计执行计划见 `docs/superpowers/plans/2026-07-15-p0-closeout.md`，过程证据见 `docs/process/logs/2026-07-15-p0-closeout-revalidation.md`。计划不属于已实现事实；只有后续源码、测试与运行结果可改变本索引的“数据状态”。
+
+### 9.1 Mock 显式开关证据
+
+| 证据 | 当前事实 |
+| --- | --- |
+| `charge-safe-miniapp/src/config/runtime.mjs` | `USE_MOCK = isDev === true && VITE_USE_MOCK === 'true'`，默认安全关闭 |
+| `charge-safe-miniapp/src/main.js` | 只有 `USE_MOCK` 为真才调用 `installMock()` |
+| `charge-safe-miniapp/src/api/mock/index.js` | Mock 安装为显式、幂等函数，不再在模块加载时替换 `uni.request` |
+| `charge-safe-miniapp/src/api/mock/runtime.mjs` | 未命中 handler 委托真实请求；命中响应带 `X-ChargeSafe-Mock` 标识 |
+| `charge-safe-miniapp/tests/` | 覆盖缺省关闭、开发显式开启、生产强制关闭、未命中真实请求和 Mock 响应标识 |
+| `charge-safe-miniapp/src/App.vue`、`pages/login.vue` | Mock 开启时向开发者/用户明确显示“模拟数据” |
+
+生产构建仍可能包含可供开发模式使用的 Mock 模块代码，但入口条件恒为关闭且不会安装请求拦截器；这与“生产不无条件 Mock”是同一可验证边界，不等于移除开发 Mock。

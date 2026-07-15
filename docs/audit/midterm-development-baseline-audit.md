@@ -168,7 +168,7 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 | 编号 | 候选问题 | 当前状态 | 当前证据 | 是否阻塞基础阶段收口 | 建议处理 | 修改范围 | 是否需要迁移 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | A | 居民与管理大屏访问模型 | 已完成，无需处理 | `/bigscreen` 与 `/api/statistics/bigscreen` 均要求 `statistics:bigscreen:view`；`/resident/dashboard`、`resident:dashboard:view`、V6 角色绑定与按登录社区查询均存在 | 否 | 只保留证据，不重复重构 | 无 | 否 |
-| B | 小程序 Mock | 仍存在，必须处理 | `src/main.js` 无条件导入 Mock；`USE_MOCK` 缺省开启且不控制拦截器安装；登录页始终展示 Mock 提示 | 是 | 仅开发环境显式开关、单一安装入口、无真实失败回退 | 小程序请求/Mock/登录提示与测试 | 否 |
+| B | 小程序 Mock | 已完成，无需处理 | 历史上 `src/main.js` 无条件导入并安装 Mock；当前由 `resolveMockEnabled` 限定为开发环境且 `VITE_USE_MOCK=true` 才安装，缺省和生产构建均关闭 | 否 | 保留开发 Mock，不允许真实失败回退 | 小程序请求/Mock/登录提示与测试 | 否 |
 | C | 小程序真机 API | 仍存在，必须处理 | 请求与上传写死 `http://localhost:8080`；Mock 注册也依赖固定 URL；无小程序环境模板；真实登录参数仍为 `phone` | 是 | 统一 `VITE_API_BASE_URL`、上传同源、缺失报错、真实登录契约对齐 | 小程序配置、请求、登录、README | 否 |
 | D | 预约与充电闭环 | 部分完成，需要补齐 | 后端已有事务、状态枚举和 `reservation_id`，但小程序预约/充电/订单为本地数组或 `setTimeout`；后端未完整约束跨社区、活动充电互斥与本人详情边界 | 是 | 先收紧后端状态机，再让居民页面使用真实 ID/API | charging 后端、测试、小程序核心页面 | 否 |
 | E | 管理大屏数据真实性 | 仍存在，必须处理 | `applyParkingAreaData` 按聚合数量生成循环 ID；告警、工单、隐患、电参、能耗为静态值；状态映射不完整 | 是 | 返回真实车棚/设备/端口明细；未接入数据明确标识 | statistics VO/service/test 与现有二维页 | 否 |
@@ -196,3 +196,17 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 - `mvn clean test`：47/47 通过，无失败、错误或跳过。
 - 管理端 `npm ci && npm run build`：通过；保留现有 chunk、Lottie 与纯注释警告。
 - 小程序 `npx npm@10.9.8 ci && npx npm@10.9.8 run build:mp-weixin`：通过；依赖审计报告 63 个已知漏洞，本轮不执行破坏性自动升级。
+
+### 11.3 小程序 Mock 显式化结果
+
+历史问题保留：小程序曾在所有构建中加载并立即替换 `uni.request`，`VITE_USE_MOCK` 缺省为开启且没有控制安装。
+
+当前行为：
+
+- `VITE_USE_MOCK` 未配置或不是精确字符串 `true` 时关闭；
+- 只有 Vite 开发环境且显式 `VITE_USE_MOCK=true` 时调用 `installMock()`；
+- 生产构建即使误设 `VITE_USE_MOCK=true`，编译后的 `USE_MOCK` 仍为 `false`；
+- 未注册的 URL 原样交给真实 `uni.request`，网络失败不会被转换为 Mock 成功；
+- Mock 响应包含 `X-ChargeSafe-Mock: true`，应用启动和登录页均显示“开发模拟数据模式/非真实业务数据”。
+
+验证：红测因 `runtime.mjs` 模块缺失失败；实现后 Node 单元测试 2 个测试文件通过，小程序生产构建通过。API 地址仍是下一独立批次，不能因 Mock 已关闭而声称真机联调已经完成。

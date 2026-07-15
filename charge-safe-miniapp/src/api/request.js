@@ -1,5 +1,5 @@
 const BASE_URL = 'http://localhost:8080'
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
+export { USE_MOCK } from '@/config/runtime.mjs'
 
 const request = (options) => {
   return new Promise((resolve, reject) => {

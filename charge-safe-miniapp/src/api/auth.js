@@ -2,7 +2,6 @@
  * 认证 API
  */
 import request from './request'
-import { USE_MOCK } from './request'
 
 export function loginByPassword(params) {
   return request({ url: '/api/auth/login', method: 'POST', data: params })

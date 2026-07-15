@@ -99,7 +99,8 @@
       </view>
 
       <!-- Mock 账号提示 -->
-      <view class="mock-tips">
+      <view v-if="USE_MOCK" class="mock-tips">
+        <text class="mock-item">开发模拟数据模式（非真实业务数据）</text>
         <text class="mock-item">Mock 测试：13800000001 / 123456</text>
         <text class="mock-item">验证码统一：123456</text>
       </view>
@@ -111,6 +112,7 @@
 import { ref, reactive } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode } from '@/api/auth'
+import { USE_MOCK } from '@/api/request'
 import { switchTab, showToast, isValidPhone } from '@/utils'
 
 const userStore = useUserStore()

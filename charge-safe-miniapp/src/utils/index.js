@@ -1,8 +1,6 @@
 /**
  * 工具函数
  */
-import { USE_MOCK } from '@/api/request'
-
 /** 页面跳转 */
 export function navigateTo(url, params = {}) {
   const query = Object.keys(params).map(k => `${k}=${params[k]}`).join('&')

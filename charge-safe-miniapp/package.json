@@ -6,6 +6,7 @@
     "npm": ">=10 <11"
   },
   "scripts": {
+    "test:unit": "node --test tests/**/*.test.mjs",
     "dev:custom": "uni -p",
     "dev:h5": "uni",
     "dev:h5:ssr": "uni --ssr",
