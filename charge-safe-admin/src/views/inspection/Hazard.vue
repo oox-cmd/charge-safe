@@ -25,11 +25,11 @@
         <el-table-column prop="createdTime" label="上报时间" width="180" />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" v-permission="'inspection:hazard:rectify'" type="warning" link icon="Tools" @click="handleRectify(row)">整改</el-button>
-            <el-button v-if="row.status === 'WAITING_REVIEW'" v-permission="'inspection:hazard:review'" type="primary" link icon="Search" @click="handleReview(row)">复查</el-button>
+            <el-button v-if="row.status === 'PENDING'" v-permission="'hazard:view'" type="warning" link icon="Tools" @click="handleRectify(row)">整改</el-button>
+            <el-button v-if="row.status === 'WAITING_REVIEW'" v-permission="'hazard:view'" type="primary" link icon="Search" @click="handleReview(row)">复查</el-button>
             <CsConfirmButton
               v-if="row.status === 'REVIEW_PASSED'"
-              v-permission="'inspection:hazard:close'"
+              v-permission="'hazard:view'"
               title="确认关闭该安全隐患吗？"
               buttonType="success"
               type="success"

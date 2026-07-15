@@ -23,7 +23,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-if="hasPermission('system:role:add')" type="primary" icon="Plus" @click="handleAdd">新增角色</el-button>
+          <el-button v-if="hasPermission('system:role:create')" type="primary" icon="Plus" @click="handleAdd">新增角色</el-button>
         </template>
       </CsTableToolbar>
 
@@ -41,7 +41,7 @@
         <el-table-column prop="createdTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="hasPermission('system:role:edit')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="hasPermission('system:role:update')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button v-if="hasPermission('system:role:assign-menu')" type="primary" link icon="Setting" @click="handleAssignMenus(row)">菜单</el-button>
             <CsConfirmButton
               v-if="hasPermission('system:role:delete')"

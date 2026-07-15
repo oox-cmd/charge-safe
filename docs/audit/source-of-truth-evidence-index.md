@@ -3,6 +3,7 @@
 > 基线：`d0c624975fb33fb8ebda50b7d3f1ab0847b12ff4`
 > 用途：把“代码事实”与中期文档章节绑定。计划文档不构成实现证据。
 > 增量更新：2026-07-15 JWT fail-open 修复，提交待本次提交生成。
+> 增量更新：2026-07-15 权限码一致性修复随本次提交固化，哈希以 Git 历史为准。
 
 ## 1. 源码事实矩阵
 
@@ -11,7 +12,7 @@
 | 项目目标 | 社区电动自行车充电安全运维，课程演示，不接真实硬件 | `README.md` 项目边界 | 基本一致 | 作为范围唯一来源 |
 | 角色 | PLATFORM_ADMIN、PROPERTY_ADMIN、MAINTAINER、INSPECTOR、RESIDENT | `DataScope.java`、V2/V3 | 一致 | 文档统一用枚举码 |
 | 认证 | JWT + `UserContext`；`POST /api/auth/login` 可匿名，其余 `/api/*` 缺失、格式错误、无效、过期或失效用户 Token 时返回统一 HTTP 401 且不进入 Controller；请求开始和结束均清理上下文 | `charge-safe-backend/src/main/java/com/chargesafe/security/JwtAuthenticationFilter.java`、`charge-safe-backend/src/test/java/com/chargesafe/security/JwtAuthenticationFilterHttpTest.java`、`SecurityConfig.java` | fail-open 已关闭；权限码不一致仍未处理 | 保持认证 401 与既有权限不足结果分离，后续单独统一权限码 |
-| 权限 | 注解/AOP/菜单权限存在；前后端 8 组权限码不一致 | `PermissionAspect.java`、`usePermission.js`、V3/V5 | 不一致 | 先做权限码字典 |
+| 权限 | Controller 注解是接口安全边界，V3 `permission_code` 向角色分发同一规范码，管理端只精确匹配 `/api/auth/permissions` 返回值；历史 30 个错误引用与本地通配符矩阵已移除 | `PermissionAspect.java`、`AuthController.java`、`MenuServiceImpl.java`、`usePermission.js`、V3/V5、`PermissionCodeConsistencyTest.java` | 已修复现有码不一致；未做 RBAC 重构，未补所有端点的方法级注解 | 后续权限覆盖扩展必须独立评审角色边界，不修改 V1-V5 |
 | 社区 | CRUD、状态、经纬度 | `CommunityController.java`、V4 | 已实现 | 经纬度只作近似定位 |
 | 车棚 | CRUD、社区归属 | `ParkingAreaController.java`、`parking_area` | 已实现 | 三级大屏称“站点”前需统一术语 |
 | 设备/端口 | 设备、端口、状态修改、批量端口 | `DeviceController.java`、`PortController.java` | 已实现 | 补端口级大屏 DTO |
@@ -25,9 +26,28 @@
 | 数据库 | 23 张 Flyway 建表；逻辑关联，无物理外键 | V1、V3 | 设计文档过时 | 以迁移为唯一结构来源 |
 | Flyway | V1-V5，`classpath:db/migration` | `application.yml`、migration 目录 | 一致 | 禁止改已发布迁移 |
 | 本地开发 | Windows MySQL；WSL 动态网关 | local profile、WSL 脚本 | README 较准确 | 保持无 Docker |
-| 测试 | 28 项：charging 15、menu 1、JWT HTTP 安全边界 12；2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `charge-safe-backend/src/test/java/`、`JwtAuthenticationFilterHttpTest.java` | 认证边界已有回归测试，其他模块覆盖仍不足 | 继续扩展权限、统计、工单和巡检测试；不把本次认证修复外推为权限码已统一 |
+| 测试 | 32 项：charging 15、menu 1、JWT HTTP 安全边界 12、权限跨层契约 3、权限接口 HTTP 1；2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `charge-safe-backend/src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`PermissionCodeConsistencyTest.java`、`AuthControllerPermissionsHttpTest.java` | 认证与现有权限码一致性已有回归测试，其他模块覆盖仍不足 | 继续扩展接口权限覆盖、统计、工单和巡检测试；不把现有码统一外推为 RBAC 已重构 |
 
 ## 2. 后端接口映射
+
+### 2.1 权限码规范映射（2026-07-15）
+
+权威关系是“Controller 注解定义接口安全边界，V3 菜单数据分发同名权限码，管理端消费后端返回值”。非系统业务当前沿用既有页面级权限码保护写操作，这是保持现有角色边界的事实，不代表已经拆成细粒度动作权限。
+
+| 业务操作 | 规范权限码 | 后端证据 | 菜单证据 | 管理端证据 |
+| --- | --- | --- | --- | --- |
+| 用户新增/编辑/删除/启停/分配角色/重置密码 | `system:user:create/update/delete/status/assign-role/reset-password` | `UserController.java` | V3 IDs 1111-1116 | `views/system/User.vue` |
+| 角色新增/编辑/删除/分配菜单 | `system:role:create/update/delete/assign-menu` | `RoleController.java` | V3 IDs 1121-1124 | `views/system/Role.vue` |
+| 菜单新增/编辑/删除 | `system:menu:create/update/delete` | `MenuController.java` | V3 IDs 1131-1133 | `views/system/Menu.vue` |
+| 社区新增/编辑/启停 | `community:list:view` | `CommunityController.java` | V3 ID 1210，PROPERTY_ADMIN 由 V5 补充 | `views/community/Index.vue` |
+| 车棚新增/编辑/删除 | `parking-area:view` | `ParkingAreaController.java` | V3 ID 1220 | `views/community/ParkingArea.vue` |
+| 设备新增/编辑/启停 | `device:list:view` | `DeviceController.java` | V3 ID 1310 | `views/device/Index.vue` |
+| 端口状态更新 | `port:view` | `PortController.java` | V3 ID 1320 | `views/device/Port.vue` |
+| 报修派单与工单处理 | `repair-ticket:view` | `RepairController.java` | V3 ID 1520 | `views/repair/Report.vue`、`Ticket.vue` |
+| 巡检任务创建/开始/完成 | `inspection-task:view` | `InspectionController.java` | V3 ID 1530 | `views/inspection/Task.vue` |
+| 隐患整改/复查/关闭 | `hazard:view` | `InspectionController.java` | V3 ID 1540 | `views/inspection/Hazard.vue` |
+
+运行态实际权限数：PLATFORM_ADMIN 39、PROPERTY_ADMIN 22、MAINTAINER 5、INSPECTOR 6、RESIDENT 0。测试只读取 `/api/auth/me`、`/api/auth/permissions` 和角色对应 GET；没有调用写接口或修改角色菜单数据。生产 Controller 当前没有带 `@RequiresPermission` 的只读 GET，因此权限不足的 403 语义由 MockMvc HTTP 测试覆盖，未通过调用写接口制造运行态拒绝。
 
 实际 Controller 15 个、REST 映射 102 个。下表按模块归并；精确请求 DTO/VO 以对应 Controller 方法签名为准。
 
@@ -62,9 +82,9 @@
 | --- | --- | --- | --- | --- |
 | `/login` | 登录 `/api/auth/login` | 公开 | 真实 | 视觉普通 |
 | `/permission/dashboard` | 用户、角色、社区、设备、日志、统计聚合 | 平台管理员路由 | 真实 | 快捷入口含演示页 |
-| `/permission/system/user` | 用户 CRUD、状态、角色 | 按钮权限码不一致 | 真实 | 页面设计文档误写未实现 |
-| `/permission/system/role` | 角色 CRUD、菜单分配 | 权限码不一致 | 真实 | 同上 |
-| `/permission/system/menu` | 菜单树 CRUD | 字段/权限码待统一 | 真实 | 同上 |
+| `/permission/system/user` | 用户 CRUD、状态、角色 | 使用 V3/Controller 的 `system:user:create/update/delete/status/assign-role/reset-password` | 真实 | 权限码已统一；页面设计文档仍过时 |
+| `/permission/system/role` | 角色 CRUD、菜单分配 | 使用 V3/Controller 的 `system:role:create/update/delete/assign-menu` | 真实 | 权限码已统一；页面设计文档仍过时 |
+| `/permission/system/menu` | 菜单树 CRUD | 使用 V3/Controller 的 `system:menu:create/update/delete` | 真实 | 权限码已统一；`permission`/`permissionCode` 表单字段契约仍需独立联调 |
 | `/permission/system/dept` | 部门树 CRUD 外观 | 路由限制 | 静态演示 | 无后端，明确未实现 |
 | `/permission/device-category` | 分类 CRUD 外观 | 路由限制 | 静态演示 | 无后端，明确未实现 |
 | `/permission/simulator` | 状态/故障/恢复/完成模拟 | 路由限制 | 真实演示接口 | 后端安全边界偏弱 |

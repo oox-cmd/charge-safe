@@ -7,7 +7,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-permission="'inspection:task:add'" type="primary" icon="Plus" @click="handleAdd">创建任务</el-button>
+          <el-button v-permission="'inspection-task:view'" type="primary" icon="Plus" @click="handleAdd">创建任务</el-button>
         </template>
       </CsTableToolbar>
 
@@ -26,7 +26,7 @@
           <template #default="{ row }">
             <CsConfirmButton
               v-if="row.status === 'PENDING'"
-              v-permission="'inspection:task:start'"
+              v-permission="'inspection-task:view'"
               title="确定要对该任务开始巡检吗？"
               buttonType="primary"
               type="primary"
@@ -36,7 +36,7 @@
             </CsConfirmButton>
             <CsConfirmButton
               v-if="row.status === 'IN_PROGRESS' || row.status === 'ABNORMAL'"
-              v-permission="'inspection:task:complete'"
+              v-permission="'inspection-task:view'"
               title="确定确认结束并完成本项巡检任务吗？"
               buttonType="success"
               type="success"

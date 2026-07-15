@@ -89,6 +89,11 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
+  // 刷新页面时 roleCode 可能已持久化，但权限码仍需从后端重新获取
+  if (userStore.token && !userStore.permissionsLoaded) {
+    await userStore.fetchPermissions()
+  }
+
   // ---- 需要认证的页面 ----
   if (!userStore.token) {
     // 未登录，去登录页

@@ -32,7 +32,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-if="hasPermission('system:user:add')" type="primary" icon="Plus" @click="handleAdd">新增用户</el-button>
+          <el-button v-if="hasPermission('system:user:create')" type="primary" icon="Plus" @click="handleAdd">新增用户</el-button>
         </template>
       </CsTableToolbar>
 
@@ -56,10 +56,10 @@
         <el-table-column prop="createdTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="hasPermission('system:user:edit')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="hasPermission('system:user:update')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button v-if="hasPermission('system:user:assign-role')" type="primary" link icon="Key" @click="handleAssignRoles(row)">角色</el-button>
             <CsConfirmButton
-              v-if="hasPermission('system:user:reset-pwd')"
+              v-if="hasPermission('system:user:reset-password')"
               :title="`确定重置用户 【${row.username}】 的密码吗？`"
               buttonType="info"
               type="warning"
@@ -68,7 +68,7 @@
               重置密码
             </CsConfirmButton>
             <CsConfirmButton
-              v-if="hasPermission('system:user:toggle-status')"
+              v-if="hasPermission('system:user:status')"
               :title="`确定要${row.status === 1 ? '停用' : '启用'}用户 【${row.username}】 吗？`"
               :buttonType="row.status === 1 ? 'warning' : 'success'"
               :type="row.status === 1 ? 'warning' : 'success'"

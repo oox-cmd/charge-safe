@@ -21,7 +21,7 @@
         <el-table-column prop="createdTime" label="报修时间" width="180" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" v-permission="'repair:report:dispatch'" type="primary" link icon="Share" @click="handleDispatch(row)">派单</el-button>
+            <el-button v-if="row.status === 'PENDING'" v-permission="'repair-ticket:view'" type="primary" link icon="Share" @click="handleDispatch(row)">派单</el-button>
           </template>
         </el-table-column>
       </el-table>

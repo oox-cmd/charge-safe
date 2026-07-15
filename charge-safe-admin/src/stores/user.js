@@ -19,6 +19,7 @@ export const useUserStore = defineStore('user', () => {
   const roleName = ref('')
   const communityId = ref(null)
   const permissions = ref([])
+  const permissionsLoaded = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -30,18 +31,21 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem(STORAGE_KEYS.nickname, nickname.value)
   }
 
-  // 安全地获取权限列表（不抛出异常，失败时静默降级）
-  async function _fetchPermissionsSilently() {
+  // 从后端加载权限码；失败时保持空集合并关闭按钮权限，不使用本地角色矩阵兜底
+  async function fetchPermissions() {
     try {
       const permRes = await getPermissions()
       if (permRes && permRes.code === 200) {
         permissions.value = permRes.data || []
+        permissionsLoaded.value = true
+        return true
       }
     } catch (e) {
-      // 权限接口失败不影响登录流程，前端有本地降级矩阵兜底
-      console.warn('[UserStore] 权限列表获取失败，将使用本地降级策略', e?.message)
-      permissions.value = []
+      console.warn('[UserStore] 权限列表获取失败，按钮权限将保持关闭', e?.message)
     }
+    permissions.value = []
+    permissionsLoaded.value = true
+    return false
   }
 
   async function login(loginForm) {
@@ -58,8 +62,8 @@ export const useUserStore = defineStore('user', () => {
       // 持久化关键字段，防止刷新后 roleCode 丢失
       _persistUser()
 
-      // 异步获取权限，不阻塞登录跳转
-      _fetchPermissionsSilently()
+      // 跳转前加载权限，避免按钮指令在权限数据到达前误删节点
+      await fetchPermissions()
 
       return true
     }
@@ -80,8 +84,7 @@ export const useUserStore = defineStore('user', () => {
         // 刷新持久化数据
         _persistUser()
 
-        // 异步获取权限，不阻塞路由跳转
-        _fetchPermissionsSilently()
+        await fetchPermissions()
 
         return true
       }
@@ -100,6 +103,7 @@ export const useUserStore = defineStore('user', () => {
     roleName.value = ''
     communityId.value = null
     permissions.value = []
+    permissionsLoaded.value = false
 
     // 清除所有持久化数据
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key))
@@ -114,7 +118,9 @@ export const useUserStore = defineStore('user', () => {
     roleName,
     communityId,
     permissions,
+    permissionsLoaded,
     isLoggedIn,
+    fetchPermissions,
     login,
     fetchUserInfo,
     logout,

@@ -7,7 +7,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-permission="'community:add'" type="primary" icon="Plus" @click="handleAdd">新增社区</el-button>
+          <el-button v-permission="'community:list:view'" type="primary" icon="Plus" @click="handleAdd">新增社区</el-button>
         </template>
       </CsTableToolbar>
 
@@ -26,9 +26,9 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'community:edit'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'community:list:view'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <CsConfirmButton
-              v-permission="'community:toggle-status'"
+              v-permission="'community:list:view'"
               :title="`确定要${row.status === 1 ? '停用' : '启用'}社区 【${row.name}】 吗？`"
               :buttonType="row.status === 1 ? 'warning' : 'success'"
               :type="row.status === 1 ? 'warning' : 'success'"

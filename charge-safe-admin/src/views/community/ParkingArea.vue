@@ -16,7 +16,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-permission="'parking-area:add'" type="primary" icon="Plus" @click="handleAdd">新增车棚</el-button>
+          <el-button v-permission="'parking-area:view'" type="primary" icon="Plus" @click="handleAdd">新增车棚</el-button>
         </template>
       </CsTableToolbar>
 
@@ -35,9 +35,9 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'parking-area:edit'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'parking-area:view'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <CsConfirmButton
-              v-permission="'parking-area:delete'"
+              v-permission="'parking-area:view'"
               :title="`确定要删除车棚 【${row.name}】 吗？此操作不可逆！`"
               type="danger"
               buttonType="danger"

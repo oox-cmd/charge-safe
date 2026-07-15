@@ -63,7 +63,7 @@
 
 | 优先级 | 事项 |
 | --- | --- |
-| P1 | 认证 fail-open（2026-07-15 已完成）；权限码、Mock 强制、小程序真实闭环、大屏假数据和稳定测试绿线仍待处理 |
+| P1 | 认证 fail-open、权限码一致性（均于 2026-07-15 完成）；Mock 强制、小程序真实闭环、大屏假数据和稳定测试绿线仍待处理 |
 | P2 | 站点/端口统计、告警来源、三级 MVP、UI 一致性、文档事实更新 |
 | P3 | 地图增强、时间轴、WebSocket、精细模型、全量无障碍和包体深度优化 |
 
@@ -81,7 +81,7 @@
 | 任务 | 源码证据 | 影响 | 建议修改文件 | 测试方式 | 验收标准 | 前置依赖 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 认证过滤器 fail-open（已完成，2026-07-15） | 历史根因是 `JwtAuthenticationFilter.java` 对缺失/无效 Token 和认证异常仍继续 filter chain；当前实现与 `JwtAuthenticationFilterHttpTest.java` 为修复证据 | 匿名访问面已关闭；本次未触碰权限码 | `JwtAuthenticationFilter.java`、`JwtAuthenticationFilterHttpTest.java` | 12 项 MockMvc HTTP 安全测试；`mvn clean test` 28/28；`mvn clean package`；local Profile 公开/无 Token/错误 Token/合法 Token 只读冒烟 | 仅 `POST /api/auth/login` 可匿名；其他 `/api/*` 无有效 Token 返回 HTTP 401；无 Controller 放行；上下文无残留；权限不足仍走既有 403 业务结果 | **已完成**；提交哈希待本次提交生成。下一项仍为“权限码不一致”，本轮未开始 |
-| 权限码不一致 | `UserController.java` 等使用 `system:*:create/update/status/reset-password`；管理端多个页面使用 `add/edit/toggle-status/reset-pwd`；`V3__add_menu_tables.sql` 为既有事实 | 按钮错误隐藏或后端拒绝，角色授权不可预测 | `charge-safe-admin/src/views/**` 的 `v-permission`、`charge-safe-admin/src/composables/usePermission.js` 或权限字典模块；必要的契约测试。禁止修改 V1-V5 | 从 Controller 注解与当前菜单数据生成对照；角色登录后验证按钮和 403；前端构建 | 前端使用后端/菜单现有权限码；无重复别名；各角色允许/拒绝结果有测试记录 | 先冻结唯一权限码清单；迁移文件只读 |
+| 权限码不一致（已完成，2026-07-15） | 历史上管理端 30 个按钮码不存在于 Controller/V3，权限接口漏掉按钮菜单，本地角色通配符矩阵掩盖问题 | 页面按钮与接口安全边界已使用同一现有码；未改变角色绑定 | `AuthController.java`、`usePermission.js`、`stores/user.js`、`router/index.js`、11 个业务页面、2 个权限测试类 | RED：4 项中 3 项失败；GREEN：权限定向 4/4、JWT+权限 16/16、完整后端 32/32、打包、`npm ci`/构建、五角色 local 只读验证 | Controller 21 个权限码全部存在于 V3；管理端判断码同时存在于 Controller/V3；平台/普通角色权限范围与 V3/V5 一致；无本地通配符授权 | **已完成**；无需数据库迁移，修复哈希以 Git 历史为准。下一项为“小程序 Mock 显式开关”，本轮未开始 |
 
 ### 10.2 核心业务闭环
 

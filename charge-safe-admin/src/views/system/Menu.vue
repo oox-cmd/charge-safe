@@ -20,7 +20,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-if="hasPermission('system:menu:add')" type="primary" icon="Plus" @click="handleAdd">新增菜单</el-button>
+          <el-button v-if="hasPermission('system:menu:create')" type="primary" icon="Plus" @click="handleAdd">新增菜单</el-button>
         </template>
       </CsTableToolbar>
 
@@ -54,8 +54,8 @@
         </el-table-column>
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="hasPermission('system:menu:edit')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button v-if="hasPermission('system:menu:add')" type="primary" link icon="Plus" @click="handleAddChild(row)">子菜单</el-button>
+            <el-button v-if="hasPermission('system:menu:update')" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="hasPermission('system:menu:create')" type="primary" link icon="Plus" @click="handleAddChild(row)">子菜单</el-button>
             <CsConfirmButton
               v-if="hasPermission('system:menu:delete')"
               :title="`确定要删除菜单 【${row.menuName}】 吗？删除该菜单会导致下级子菜单或按钮一并被删除！`"
@@ -101,7 +101,7 @@
           <el-input v-model="form.component" placeholder="请输入组件路径" />
         </el-form-item>
         <el-form-item v-if="form.menuType === 'BUTTON'" label="权限标识" prop="permission">
-          <el-input v-model="form.permission" placeholder="如 system:user:add" />
+          <el-input v-model="form.permission" placeholder="如 system:user:create" />
         </el-form-item>
         <el-form-item label="排序" prop="sortOrder">
           <el-input-number v-model="form.sortOrder" :min="0" :max="9999" style="width: 100%" />

@@ -16,7 +16,7 @@
     <el-card shadow="never">
       <CsTableToolbar @refresh="fetchData">
         <template #left>
-          <el-button v-permission="'device:add'" type="primary" icon="Plus" @click="handleAdd">新增设备</el-button>
+          <el-button v-permission="'device:list:view'" type="primary" icon="Plus" @click="handleAdd">新增设备</el-button>
         </template>
       </CsTableToolbar>
 
@@ -35,10 +35,10 @@
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'device:edit'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'device:list:view'" type="primary" link icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button type="primary" link icon="Connection" @click="handleViewPorts(row)">查看端口</el-button>
             <CsConfirmButton
-              v-permission="'device:toggle-status'"
+              v-permission="'device:list:view'"
               :title="`确定要${row.status === 1 ? '停用' : '启用'}设备 【${row.deviceName}】 吗？`"
               :buttonType="row.status === 1 ? 'warning' : 'success'"
               :type="row.status === 1 ? 'warning' : 'success'"

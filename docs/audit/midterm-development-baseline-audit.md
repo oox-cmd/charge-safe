@@ -4,6 +4,7 @@
 > 代码基线：`d0c624975fb33fb8ebda50b7d3f1ab0847b12ff4`（`main` 与 `origin/main` 一致）
 > 性质：中期事实基线，不是最终交付结论。
 > 状态更新：2026-07-15 已关闭 JWT 认证过滤器 fail-open 路径；修复提交待本次提交生成。其余审查结论除明确标记外不变。
+> 状态更新：2026-07-15 已统一 Controller、V3 菜单数据和管理端按钮使用的现有权限码；修复随本次提交固化，哈希以 Git 历史为准。未对 RBAC 模型或角色绑定重新设计。
 
 ## 1. 审查范围与方法
 
@@ -21,7 +22,7 @@
 | 数据库 | Windows 原生 MySQL 为本地开发主方案；WSL 脚本动态解析 Windows 网关 | `README.md`、`application-local.yml`、`scripts/dev-backend-wsl.sh` |
 | 迁移 | `classpath:db/migration`，真实目录含 V1 至 V5 | `application.yml`、`src/main/resources/db/migration/` |
 | 容器 | 当前仓库没有 Compose、Dockerfile 或 Docker Profile；本地开发不要求 Docker | 全仓库文件清单、`README.md` |
-| 测试 | 3 个测试类、28 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、2026-07-15 验证记录 |
+| 测试 | 5 个测试类、32 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`PermissionCodeConsistencyTest.java`、`AuthControllerPermissionsHttpTest.java`、2026-07-15 验证记录 |
 
 `application-h2.yml` 和 H2 SQL 存在，但 `pom.xml` 没有 H2 依赖，不能据此声称 H2 测试环境可运行。
 
@@ -41,7 +42,7 @@
 | 设备模拟 | 基本实现 | 4 个模拟接口和管理端页面存在，仅用于演示 |
 | 管理端业务 CRUD | 基本实现 | 主要业务页面已接后端，仍有权限与体验缺口 |
 | 登录认证 | 基本实现（fail-open 已修复） | JWT 生成/解析存在；除 `POST /api/auth/login` 外，缺失、格式错误或无效 Token 均由过滤器直接返回统一 HTTP 401；HTTP 安全测试覆盖用户缺失、禁用、权限不足与上下文清理 |
-| 角色、菜单与权限 | 部分实现 | RBAC 结构存在；前端权限码与后端/迁移有 8 组不一致 |
+| 角色、菜单与权限 | 基本实现（权限码不一致已修复） | RBAC 结构存在；管理端 30 个错误按钮权限引用已改为 Controller 与 V3 中的现有码，权限接口会返回按钮码，前端不再维护本地角色通配符矩阵；其他接口权限覆盖缺口仍待独立评审 |
 | 预约与充电 | 部分实现 | 后端主流程较完整；小程序仍以本地定时器和静态数据演示 |
 | 报修与工单 | 部分实现 | 后端流程存在；小程序提交与列表未真实接入 |
 | 通知 | 部分实现 | 后端与管理端存在；小程序调用的是 Mock 专用接口 |
@@ -57,7 +58,7 @@
 - 后端预约：创建预约、冲突检查、过期、取消、转充电订单均有实现。
 - 后端报修：报修、确认、派单、维修、验收、驳回和关闭具备流程。
 - 后端巡检：任务、开始/完成、记录、隐患整改与复查具备流程。
-- 管理端可操作以上流程，但按钮权限码并非全部与后端一致。
+- 管理端按钮权限码已与 Controller 注解和 V3 菜单数据一致；角色的数据域与部分接口缺少方法级权限注解仍是独立问题，不能据此声称整套 RBAC 已完成重构。
 - 小程序“找车棚 → 预约 → 充电 → 结束 → 记录/报修”只有页面路径，数据没有形成真实后端闭环。
 
 ## 5. 安全与一致性发现
@@ -66,7 +67,7 @@
 2. `SecurityConfig` 仍使用项目既有的自定义 Servlet 过滤器注册方式；本次未引入 Spring Security Web，也未改变权限码体系。认证失败由过滤器返回 HTTP 401，已认证但无业务权限仍由 `PermissionAspect` 和既有响应机制处理。
 3. `WebConfig` 使用宽泛的跨域来源模式并允许凭据，正式部署前必须收紧。
 4. `application.yml` 含可用的 JWT 默认值；本地示例可保留占位符，但运行配置应要求环境变量。
-5. 管理端 `system:*:add/edit/reset-pwd/toggle-status` 与后端/迁移的 `create/update/reset-password/status` 不一致。
+5. 历史问题（2026-07-15 已修复）：管理端曾使用 30 个后端和 V3 均不存在的按钮码，包括 `add/edit/reset-pwd/toggle-status`、`repair:ticket:*` 与 `inspection:*` 等命名；`/api/auth/permissions` 又只从排除按钮的菜单树提取权限，本地通配符角色矩阵掩盖了问题。当前以 Controller 安全边界和 V3 `permission_code` 现有码为规范，权限接口复用 `listPermissionCodesByUserId`，管理端仅精确匹配后端返回权限；V1-V5 和角色菜单绑定均未修改。
 6. 大屏路由当前无需登录，它调用的统计接口也没有方法级权限标记；已确认目标是纳入管理端登录、菜单和权限体系，现状属于下一阶段 P1，不得通过绕过认证实现演示。
 7. 小程序请求层无条件引入 Mock 拦截器，`USE_MOCK` 常量没有控制安装；真实设备还无法使用硬编码 `localhost` 访问开发机。
 
@@ -120,10 +121,10 @@
 
 当前未发现必须在本轮立即破坏性处理的 P0；这不代表已可最终交付。
 
-### P1（8 项：1 项已完成，7 项待处理）
+### P1（8 项：2 项已完成，6 项待处理）
 
 1. ~~后端认证过滤器 fail-open。~~ **已于 2026-07-15 修复并通过 12 项 HTTP 安全测试、28 项完整后端测试及本地运行态冒烟；提交哈希待本次提交生成。**
-2. 前端与后端权限码不一致。
+2. ~~前端与后端权限码不一致。~~ **已于 2026-07-15 修复；跨层契约测试、权限接口 HTTP 测试、32 项完整后端测试、管理端构建和五角色只读运行态验证通过；修复哈希以 Git 历史为准。**
 3. 小程序 Mock 无条件启用。
 4. 小程序 `localhost` 地址不可用于真机。
 5. 小程序核心业务链路没有真实闭环。

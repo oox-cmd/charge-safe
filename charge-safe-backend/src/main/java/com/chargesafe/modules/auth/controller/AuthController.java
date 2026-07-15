@@ -7,6 +7,7 @@ import com.chargesafe.modules.auth.service.AuthService;
 import com.chargesafe.modules.auth.vo.LoginVO;
 import com.chargesafe.modules.user.service.MenuService;
 import com.chargesafe.modules.user.vo.MenuVO;
+import com.chargesafe.security.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,18 +45,10 @@ public class AuthController {
     @Operation(summary = "获取当前用户权限码")
     @GetMapping("/permissions")
     public Result<java.util.List<String>> getCurrentUserPermissions() {
-        java.util.List<String> permissions = new java.util.ArrayList<>();
-        extractPermissions(menuService.listCurrentUserMenus(), permissions);
+        java.util.List<String> permissions = menuService.listPermissionCodesByUserId(UserContext.getUserId())
+                .stream()
+                .sorted()
+                .toList();
         return Result.success(permissions);
-    }
-
-    private void extractPermissions(java.util.List<MenuVO> menus, java.util.List<String> permissions) {
-        if (menus == null) return;
-        for (MenuVO menu : menus) {
-            if (menu.getPermissionCode() != null && !menu.getPermissionCode().isEmpty()) {
-                permissions.add(menu.getPermissionCode());
-            }
-            extractPermissions(menu.getChildren(), permissions);
-        }
     }
 }

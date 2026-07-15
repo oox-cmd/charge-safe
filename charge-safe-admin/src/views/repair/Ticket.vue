@@ -22,7 +22,7 @@
           <template #default="{ row }">
             <CsConfirmButton
               v-if="row.status === 'DISPATCHED'"
-              v-permission="'repair:ticket:accept'"
+              v-permission="'repair-ticket:view'"
               title="确定要对该工单进行接单吗？"
               buttonType="primary"
               type="primary"
@@ -30,10 +30,10 @@
             >
               接单
             </CsConfirmButton>
-            <el-button v-if="row.status === 'PROCESSING'" v-permission="'repair:ticket:finish'" type="success" link icon="Checked" @click="handleFinish(row)">完成维修</el-button>
+            <el-button v-if="row.status === 'PROCESSING'" v-permission="'repair-ticket:view'" type="success" link icon="Checked" @click="handleFinish(row)">完成维修</el-button>
             <CsConfirmButton
               v-if="row.status === 'WAITING_ACCEPTANCE'"
-              v-permission="'repair:ticket:verify'"
+              v-permission="'repair-ticket:view'"
               title="确定确认完成验收并关闭此工单吗？"
               buttonType="success"
               type="success"
@@ -41,10 +41,10 @@
             >
               验收通过
             </CsConfirmButton>
-            <el-button v-if="row.status === 'WAITING_ACCEPTANCE'" v-permission="'repair:ticket:reject'" type="danger" link icon="Close" @click="handleReject(row)">驳回</el-button>
+            <el-button v-if="row.status === 'WAITING_ACCEPTANCE'" v-permission="'repair-ticket:view'" type="danger" link icon="Close" @click="handleReject(row)">驳回</el-button>
             <CsConfirmButton
               v-if="row.status === 'FINISHED'"
-              v-permission="'repair:ticket:close'"
+              v-permission="'repair-ticket:view'"
               title="确定关闭此工单吗？"
               buttonType="info"
               type="info"

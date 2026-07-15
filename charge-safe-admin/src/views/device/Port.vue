@@ -38,7 +38,7 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-dropdown v-permission="'port:update-status'" @command="(cmd) => handleStatusChange(row, cmd)">
+            <el-dropdown v-permission="'port:view'" @command="(cmd) => handleStatusChange(row, cmd)">
               <el-button type="primary" link>
                 修改状态 <el-icon><ArrowDown /></el-icon>
               </el-button>
