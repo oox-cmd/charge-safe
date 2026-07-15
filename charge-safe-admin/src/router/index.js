@@ -29,6 +29,16 @@ const routes = [
     }
   },
   {
+    path: '/bigscreen3d',
+    name: 'BigScreen3D',
+    component: () => import('@/views/bigscreen3d/Index.vue'),
+    meta: {
+      title: '三维管理大屏',
+      requiresAuth: true,
+      permission: 'statistics:bigscreen:view'
+    }
+  },
+  {
     path: '/resident/dashboard',
     name: 'ResidentDashboard',
     component: () => import('@/views/resident/Dashboard.vue'),

@@ -7,16 +7,14 @@
 
     <view class="card">
       <view class="row"><text class="lbl">订单号</text><text class="val">{{ order.orderNo }}</text></view>
-      <view class="row"><text class="lbl">车棚</text><text class="val">{{ order.parkingName || 'A栋充电车棚' }}</text></view>
-      <view class="row"><text class="lbl">端口</text><text class="val">{{ order.portName || 'A1-1号口' }}</text></view>
-      <view class="row"><text class="lbl">开始时间</text><text class="val">{{ order.startTime }}</text></view>
-      <view class="row" v-if="order.endTime"><text class="lbl">结束时间</text><text class="val">{{ order.endTime }}</text></view>
-      <view class="row" v-if="order.durationMinutes"><text class="lbl">充电时长</text><text class="val">{{ order.durationMinutes }} 分钟</text></view>
+      <view class="row"><text class="lbl">端口</text><text class="val">{{ order.portName || '—' }}</text></view>
+      <view class="row"><text class="lbl">开始时间</text><text class="val">{{ formatTime(order.startTime) }}</text></view>
+      <view class="row" v-if="order.endTime"><text class="lbl">结束时间</text><text class="val">{{ formatTime(order.endTime) }}</text></view>
+      <view class="row" v-if="order.durationMinutes != null"><text class="lbl">充电时长</text><text class="val">{{ order.durationMinutes }} 分钟</text></view>
       <view class="row"><text class="lbl">单价</text><text class="val">¥1.50 / 小时</text></view>
-      <view class="row"><text class="lbl">金额</text><text class="val cost">¥{{ order.amount || '—' }}</text></view>
+      <view class="row"><text class="lbl">金额</text><text class="val cost">¥{{ order.amount != null ? order.amount : '—' }}</text></view>
     </view>
 
-    <!-- 充电中 → 结束按钮 -->
     <button v-if="order.status === 'CHARGING'" class="btn-stop" @click="handleStop">结束充电</button>
   </view>
 </template>
@@ -24,23 +22,49 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { finishCharging } from '@/api/charging'
+import { getMyOrderById } from '@/api/order'
+
 const order = ref({})
 const statusMap = { 'CHARGING': '充电中', 'COMPLETED': '已完成', 'SETTLED': '已结算', 'CANCELLED': '已取消' }
 const iconMap = { 'CHARGING': '⚡', 'COMPLETED': '✅', 'SETTLED': '💰', 'CANCELLED': '❌' }
 
-onLoad((options) => {
-  order.value = {
-    id: options.id || 1, orderNo: 'ORD202607030001', status: options.finished ? 'COMPLETED' : 'CHARGING',
-    parkingName: 'A栋充电车棚', portName: 'A1-1号口',
-    startTime: '2026-07-03 14:00', endTime: '2026-07-03 16:00', durationMinutes: 120, amount: '3.00'
-  }
-})
+function formatTime(iso) {
+  if (!iso) return '--'
+  try { return iso.replace('T', ' ').substring(0, 16) } catch { return iso }
+}
 
 function handleStop() {
-  uni.showModal({ title: '确认结束', content: '确定要结束充电吗？', confirmText: '确认结束', confirmColor: '#ef4444',
-    success: (res) => { if (res.confirm) { order.value.status = 'COMPLETED'; uni.showToast({ title: '充电已结束', icon: 'success' }) } }
+  const orderId = order.value.id
+  if (!orderId) return
+  uni.showModal({
+    title: '确认结束', content: '确定要结束充电吗？',
+    confirmText: '确认结束', confirmColor: '#ef4444',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          const r = await finishCharging(orderId)
+          if (r.code === 200) {
+            order.value.status = 'COMPLETED'
+            uni.showToast({ title: '充电已结束', icon: 'success' })
+          }
+        } catch { /* 错误由 request.js 统一 toast */ }
+      }
+    }
   })
 }
+
+onLoad(async (options) => {
+  const id = options.id ? Number(options.id) : null
+  if (!id) return
+
+  try {
+    const res = await getMyOrderById(id)
+    if (res.code === 200 && res.data) {
+      order.value = res.data
+    }
+  } catch { /* 错误由 request.js 统一 toast */ }
+})
 </script>
 
 <style scoped>

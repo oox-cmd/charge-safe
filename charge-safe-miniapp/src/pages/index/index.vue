@@ -98,13 +98,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { getAllCommunities, getNearestCommunity } from '@/api/community'
 import { getUnreadCount } from '@/api/user'
+import { pageMyOrders } from '@/api/order'
 
 const userStore = useUserStore()
-const unreadCount = ref(3); const showPicker = ref(false); const searchText = ref(''); const communityList = ref([])
-const recentOrders = ref([
-  { id: 1, orderNo: 'ORD202601010001', startTime: '2026-01-01 08:00', status: 'COMPLETED', amount: '3.75' },
-  { id: 2, orderNo: 'ORD202601020001', startTime: '2026-01-02 09:30', status: 'CHARGING', amount: null }
-])
+const unreadCount = ref(0); const showPicker = ref(false); const searchText = ref(''); const communityList = ref([])
+const recentOrders = ref([])
 const statusMap = { 'CHARGING': '充电中', 'COMPLETED': '已完成', 'SETTLED': '已结算' }
 const greeting = computed(() => { const h = new Date().getHours(); return h < 6 ? '夜深了 🌙' : h < 12 ? '早上好 ☀️' : h < 18 ? '下午好 🌤️' : '晚上好 🌙' })
 const filteredList = computed(() => { if (!searchText.value) return communityList.value; const kw = searchText.value.toLowerCase(); return communityList.value.filter(c => c.name.toLowerCase().includes(kw) || c.address.toLowerCase().includes(kw)) })
@@ -113,6 +111,10 @@ onMounted(async () => {
   try { const res = await getAllCommunities(); if (res.code === 200 && res.data) communityList.value = res.data } catch { /* */ }
   if (!userStore.communityId) await autoLocate()
   try { const res = await getUnreadCount(); if (res.code === 200 && res.data) unreadCount.value = res.data.count } catch { /* */ }
+  try {
+    const res = await pageMyOrders({ page: 1, size: 3 })
+    if (res.code === 200 && res.data?.records) recentOrders.value = res.data.records
+  } catch { /* */ }
 })
 
 async function autoLocate() {

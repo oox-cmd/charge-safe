@@ -36,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         vo.setPortStatus(getPortStatusStatistics(communityId));
         vo.setOrderTrend(getOrderTrend(communityId).getTrends());
         vo.setParkingAreaUsage(getParkingAreaUsage(communityId));
+        vo.setAlarms(getAlarms(communityId));
         return vo;
     }
 
@@ -352,9 +354,16 @@ public class StatisticsServiceImpl implements StatisticsService {
                     .doubleValue()
                     : 0.0;
 
+            // 按端口号升序排序，保证大屏端口矩阵展示有序
+            List<ChargingPort> sortedPorts = ports.stream()
+                    .sorted(Comparator.comparing(ChargingPort::getPortNumber,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
+
             ParkingAreaUsageVO.ParkingAreaUsage usage = new ParkingAreaUsageVO.ParkingAreaUsage();
             usage.setId(area.getId());
             usage.setName(area.getName());
+            usage.setPorts(sortedPorts);
             usage.setTotalPorts(total);
             usage.setIdlePorts(idle);
             usage.setChargingPorts(charging);
@@ -405,5 +414,57 @@ public class StatisticsServiceImpl implements StatisticsService {
         return ports.stream()
                 .filter(p -> status.equals(p.getStatus()))
                 .count();
+    }
+    /**
+     * 获取统一告警记录
+     */
+    private List<AlarmRecordVO> getAlarms(Long communityId) {
+        List<AlarmRecordVO> alarms = new ArrayList<>();
+
+        // 1. 获取设备故障端口
+        List<Long> deviceIds = getDeviceIdsByCommunity(communityId);
+        if (deviceIds != null && !deviceIds.isEmpty()) {
+            List<ChargingPort> faultPorts = portMapper.selectList(
+                    new LambdaQueryWrapper<ChargingPort>()
+                            .in(ChargingPort::getDeviceId, deviceIds)
+                            .eq(ChargingPort::getStatus, PortStatus.FAULT.getCode())
+            );
+            for (ChargingPort port : faultPorts) {
+                AlarmRecordVO alarm = new AlarmRecordVO();
+                alarm.setId("FAULT-" + port.getId());
+                alarm.setDeviceId(port.getDeviceId());
+                alarm.setCommunityId(communityId); // 注意这里严格来说端口自身没有communityId字段，暂借参数或通过设备反推
+                alarm.setAlarmType("FAULT");
+                alarm.setAlarmContent(port.getPortName() + " 状态异常 (故障)");
+                alarm.setAlarmLevel("ERROR");
+                alarm.setCreatedTime(port.getUpdatedTime() != null ? port.getUpdatedTime() : LocalDateTime.now());
+                alarms.add(alarm);
+            }
+        }
+
+        // 2. 获取未闭环的安全隐患
+        List<SafetyHazard> hazards = hazardMapper.selectList(
+                new LambdaQueryWrapper<SafetyHazard>()
+                        .in(SafetyHazard::getStatus,
+                                HazardStatus.PENDING.getCode(),
+                                HazardStatus.RECTIFYING.getCode(),
+                                HazardStatus.WAITING_REVIEW.getCode(),
+                                HazardStatus.REVIEW_FAILED.getCode())
+                        .eq(communityId != null, SafetyHazard::getCommunityId, communityId)
+        );
+        for (SafetyHazard hazard : hazards) {
+            AlarmRecordVO alarm = new AlarmRecordVO();
+            alarm.setId("HAZARD-" + hazard.getId());
+            alarm.setCommunityId(hazard.getCommunityId());
+            alarm.setAlarmType("HAZARD");
+            alarm.setAlarmContent(hazard.getDescription() != null ? hazard.getDescription() : "安全隐患待处理");
+            alarm.setAlarmLevel(hazard.getSeverity() != null ? hazard.getSeverity() : "WARNING");
+            alarm.setCreatedTime(hazard.getCreatedTime() != null ? hazard.getCreatedTime() : LocalDateTime.now());
+            alarms.add(alarm);
+        }
+
+        // 按时间倒序
+        alarms.sort(Comparator.comparing(AlarmRecordVO::getCreatedTime).reversed());
+        return alarms;
     }
 }

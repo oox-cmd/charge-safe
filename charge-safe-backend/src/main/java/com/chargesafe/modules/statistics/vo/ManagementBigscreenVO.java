@@ -11,4 +11,5 @@ public class ManagementBigscreenVO {
     private PortStatusStatisticsVO portStatus;
     private List<OrderTrendVO.DayTrend> orderTrend;
     private ParkingAreaUsageVO parkingAreaUsage;
+    private List<AlarmRecordVO> alarms;
 }

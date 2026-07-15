@@ -5,7 +5,6 @@
       <view class="row"><text class="lbl">端口</text><text class="val">{{ portName }}</text></view>
       <view class="row"><text class="lbl">有效期</text><text class="val">30 分钟</text></view>
 
-      <!-- 时段选择 -->
       <view class="row">
         <text class="lbl">开始时间</text>
         <picker mode="time" :value="startTime" @change="onStartChange">
@@ -19,7 +18,6 @@
         </picker>
       </view>
 
-      <!-- 预估费用 -->
       <view class="fee-card">
         <text class="fee-label">预估费用</text>
         <text class="fee-amount">¥{{ estimatedFee }}</text>
@@ -38,8 +36,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-const portId = ref(''); const portName = ref(''); const loading = ref(false)
-const startTime = ref(''); const selectedDur = ref('2 小时')
+import { createReservation } from '@/api/charging'
+
+const portId = ref('')
+const portName = ref('')
+const loading = ref(false)
+const startTime = ref('')
+const selectedDur = ref('2 小时')
 const durations = ['30 分钟', '1 小时', '1.5 小时', '2 小时', '3 小时', '4 小时']
 
 const estimatedFee = computed(() => {
@@ -49,11 +52,26 @@ const estimatedFee = computed(() => {
 
 function onStartChange(e) { startTime.value = e.detail.value }
 function onDurChange(e) { selectedDur.value = durations[e.detail.value] }
-function handleConfirm() {
-  loading.value = true; setTimeout(() => { loading.value = false; uni.showToast({ title: '预约成功', icon: 'success' }); setTimeout(() => uni.redirectTo({ url: '/pages/reservation/index' }), 1200) }, 1000)
+
+async function handleConfirm() {
+  if (!portId.value) return
+  loading.value = true
+  try {
+    const res = await createReservation(Number(portId.value))
+    if (res.code === 200) {
+      uni.showToast({ title: '预约成功', icon: 'success' })
+      setTimeout(() => uni.redirectTo({ url: '/pages/reservation/index' }), 1200)
+    }
+  } catch { /* 错误由 request.js 统一 toast */ }
+  loading.value = false
 }
+
 function goBack() { uni.navigateBack() }
-onLoad((options) => { portId.value = options.portId || ''; portName.value = options.portName || '' })
+
+onLoad((options) => {
+  portId.value = options.portId || ''
+  portName.value = options.portName || ''
+})
 </script>
 
 <style scoped>

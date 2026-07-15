@@ -6,14 +6,14 @@
     <view class="card" v-for="o in filtered" :key="o.id" @click="goDetail(o)">
       <view class="top">
         <text class="no">{{ o.orderNo }}</text>
-        <text :class="['tag', o.status]" :style="o.status === 'CHARGING' ? 'animation: pulse 1.5s ease-in-out infinite;' : ''">{{ map[o.status] || o.status }}</text>
+        <text :class="['tag', o.status]" :style="o.status === 'CHARGING' ? 'animation: pulse 1.5s ease-in-out infinite;' : ''">{{ statusMap[o.status] || o.status }}</text>
       </view>
       <view class="mid">
-        <text class="place">{{ o.parkingName || 'A栋充电车棚' }} · {{ o.portName || '1号端口' }}</text>
+        <text class="place">{{ o.portName || '—' }}</text>
       </view>
       <view class="btm">
-        <text class="time">{{ o.startTime }}</text>
-        <text class="cost" v-if="o.amount">¥{{ o.amount }}</text>
+        <text class="time">{{ formatTime(o.startTime) }}</text>
+        <text class="cost" v-if="o.amount != null">¥{{ o.amount }}</text>
         <text class="cost" v-else-if="o.status === 'CHARGING'">计费中</text>
       </view>
     </view>
@@ -22,17 +22,31 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { pageMyOrders } from '@/api/order'
+
 const cur = ref('')
+const orders = ref([])
 const tabs = [{ l: '全部', v: '' }, { l: '充电中', v: 'CHARGING' }, { l: '已完成', v: 'COMPLETED' }, { l: '已取消', v: 'CANCELLED' }, { l: '已结算', v: 'SETTLED' }]
-const orders = ref([
-  { id: 1, orderNo: 'ORD202607040001', status: 'CHARGING', parkingName: 'A栋充电车棚', portName: 'A1-1号口', durationMinutes: null, amount: null, startTime: '2026-07-04 08:00' },
-  { id: 2, orderNo: 'ORD202607030001', status: 'COMPLETED', parkingName: 'A栋充电车棚', portName: 'A1-2号口', durationMinutes: 120, amount: '3.00', startTime: '2026-07-03 14:00' },
-  { id: 3, orderNo: 'ORD202607020001', status: 'CANCELLED', parkingName: 'B栋充电车棚', portName: 'B1-1号口', durationMinutes: 0, amount: null, startTime: '2026-07-02 10:00' }
-])
+const statusMap = { 'CHARGING': '充电中', 'COMPLETED': '已完成', 'SETTLED': '已结算', 'CANCELLED': '已取消' }
+
 const filtered = computed(() => cur.value ? orders.value.filter(o => o.status === cur.value) : orders.value)
-const map = { 'CHARGING': '充电中', 'COMPLETED': '已完成', 'SETTLED': '已结算', 'CANCELLED': '已取消' }
+
+function formatTime(iso) {
+  if (!iso) return '--'
+  try { return iso.replace('T', ' ').substring(0, 16) } catch { return iso }
+}
+
 const goDetail = (o) => uni.navigateTo({ url: `/pages/order/detail?id=${o.id}` })
+
+onMounted(async () => {
+  try {
+    const res = await pageMyOrders()
+    if (res.code === 200 && res.data?.records) {
+      orders.value = res.data.records
+    }
+  } catch { /* 错误由 request.js 统一 toast */ }
+})
 </script>
 
 <style scoped>

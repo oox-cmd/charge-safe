@@ -11,42 +11,81 @@
 
     <view class="info-card">
       <view class="row"><text class="lbl">订单号</text><text class="val">{{ order.orderNo }}</text></view>
-      <view class="row"><text class="lbl">端口</text><text class="val">{{ order.portName || 'A1-1号口' }}</text></view>
-      <view class="row"><text class="lbl">车棚</text><text class="val">{{ order.parkingName || 'A栋充电车棚' }}</text></view>
-      <view class="row"><text class="lbl">开始时间</text><text class="val">{{ order.startTime }}</text></view>
+      <view class="row"><text class="lbl">端口</text><text class="val">{{ order.portName || '—' }}</text></view>
+      <view class="row"><text class="lbl">车棚</text><text class="val">{{ order.parkingName || '—' }}</text></view>
+      <view class="row"><text class="lbl">开始时间</text><text class="val">{{ formatTime(order.startTime) }}</text></view>
       <view class="row"><text class="lbl">当前费用</text><text class="val cost">¥{{ amount }}</text></view>
     </view>
 
-    <button class="btn-stop" @click="handleStop">结束充电</button>
+    <button class="btn-stop" :disabled="stopping" @click="handleStop">结束充电</button>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-const order = ref({
-  orderNo: 'ORD202607040001', startTime: '2026-07-04 08:00',
-  portName: 'A1-1号口', parkingName: 'A栋充电车棚', status: 'CHARGING', id: 1
+import { onLoad } from '@dcloudio/uni-app'
+import { finishCharging } from '@/api/charging'
+import { getMyOrderById } from '@/api/order'
+
+const order = ref({})
+const orderId = ref(null)
+const elapsed = ref(0)
+const stopping = ref(false)
+let timer = null
+
+const duration = computed(() => {
+  const h = Math.floor(elapsed.value / 3600)
+  const m = Math.floor((elapsed.value % 3600) / 60)
+  const s = elapsed.value % 60
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
 })
-const elapsed = ref(0); let timer = null
-const duration = computed(() => { const h = Math.floor(elapsed.value / 3600); const m = Math.floor((elapsed.value % 3600) / 60); const s = elapsed.value % 60; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` })
+
 const amount = computed(() => Math.max(0.50, (elapsed.value / 3600) * 1.5).toFixed(2))
 
-function handleStop() {
+function formatTime(iso) {
+  if (!iso) return '--'
+  try { return iso.replace('T', ' ').substring(0, 16) } catch { return iso }
+}
+
+async function handleStop() {
   uni.showModal({
     title: '确认结束', content: '确定要结束充电吗？结束后将生成订单。',
     confirmText: '确认结束', confirmColor: '#ef4444',
-    success: (res) => {
-      if (res.confirm) {
-        if (timer) clearInterval(timer)
-        uni.showToast({ title: '充电已结束', icon: 'success' })
-        order.value.status = 'COMPLETED'
-        setTimeout(() => uni.redirectTo({ url: `/pages/order/detail?id=${order.value.id}&finished=1` }), 1000)
+    success: async (res) => {
+      if (res.confirm && orderId.value) {
+        stopping.value = true
+        try {
+          const r = await finishCharging(orderId.value)
+          if (r.code === 200) {
+            if (timer) clearInterval(timer)
+            uni.showToast({ title: '充电已结束', icon: 'success' })
+            setTimeout(() => uni.redirectTo({ url: `/pages/order/detail?id=${orderId.value}` }), 1000)
+          }
+        } catch { /* 错误由 request.js 统一 toast */ }
+        stopping.value = false
       }
     }
   })
 }
 
-onMounted(() => { timer = setInterval(() => elapsed.value++, 1000) })
+onLoad(async (options) => {
+  orderId.value = options.orderId ? Number(options.orderId) : null
+  if (!orderId.value) return
+
+  try {
+    const res = await getMyOrderById(orderId.value)
+    if (res.code === 200 && res.data) {
+      order.value = res.data
+      if (res.data.startTime) {
+        const start = new Date(res.data.startTime).getTime()
+        const now = Date.now()
+        elapsed.value = Math.max(0, Math.floor((now - start) / 1000))
+      }
+      timer = setInterval(() => elapsed.value++, 1000)
+    }
+  } catch { /* 错误由 request.js 统一 toast */ }
+})
+
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
@@ -65,4 +104,5 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .val { font-size: 28rpx; font-weight: 600; color: #1e293b; }
 .val.cost { font-size: 36rpx; color: #ef4444; }
 .btn-stop { width: 100%; height: 96rpx; background: #fff; color: #ef4444; border: 2rpx solid #fecaca; border-radius: 20rpx; font-size: 32rpx; font-weight: 600; }
+.btn-stop:disabled { opacity: 0.5; }
 </style>

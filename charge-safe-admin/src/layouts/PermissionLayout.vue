@@ -144,7 +144,7 @@ onUnmounted(() => {
 }
 
 .aside {
-  background: #1f2d3d;
+  background: #0f172a;
   transition: width 0.3s;
   overflow: hidden;
 }
@@ -159,8 +159,8 @@ onUnmounted(() => {
   font-weight: bold;
   cursor: pointer;
   gap: 8px;
-  background: #131e26;
-  border-bottom: 1px solid #2b353f;
+  background: #092A4C;
+  border-bottom: 1px solid #114C8A;
 }
 
 .logo-icon {
@@ -169,31 +169,31 @@ onUnmounted(() => {
 
 .side-menu {
   border-right: none;
-  background: #1f2d3d;
+  background: #0D3A69;
 }
 
 :deep(.el-menu) {
-  background-color: #1f2d3d !important;
+  background-color: #0D3A69 !important;
   border: none;
 }
 
 :deep(.el-menu-item) {
-  color: #bfcbd9 !important;
+  color: #94a3b8 !important;
 }
 
 :deep(.el-sub-menu__title) {
-  color: #bfcbd9 !important;
+  color: #94a3b8 !important;
 }
 
 :deep(.el-menu-item:hover),
 :deep(.el-sub-menu__title:hover) {
-  background-color: #001529 !important;
-  color: #fff !important;
+  background-color: #114C8A !important;
+  color: #f8fafc !important;
 }
 
 :deep(.el-menu-item.is-active) {
-  background-color: #1890ff !important;
-  color: #fff !important;
+  background-color: #018B8D !important;
+  color: #ffffff !important;
 }
 
 .header {
@@ -201,7 +201,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
   padding: 0 20px;
 }
 
@@ -253,8 +253,8 @@ onUnmounted(() => {
 }
 
 .main {
-  background: #f0f2f5;
-  padding: 20px;
+  background: var(--el-bg-color-page);
+  padding: 24px;
   overflow-y: auto;
 }
 </style>

@@ -1,5 +1,6 @@
 package com.chargesafe.modules.statistics.vo;
 
+import com.chargesafe.modules.device.entity.ChargingPort;
 import lombok.Data;
 
 import java.util.List;
@@ -29,6 +30,11 @@ public class ParkingAreaUsageVO {
          * 车棚名称
          */
         private String name;
+
+        /**
+         * 该车棚下真实的端口明细，按端口号升序排列，供大屏端口矩阵展示，不再使用汇总数伪造。
+         */
+        private List<ChargingPort> ports;
 
         /**
          * 端口总数

@@ -76,8 +76,8 @@
             <div ref="stationLottieRef" class="station-lottie"></div>
             <div class="station-status">
               <div class="status-item"><span class="label">运行状态</span><span class="value success">良好</span></div>
-              <div class="status-item"><span class="label">当前负载</span><span class="value">42%</span></div>
-              <div class="status-item"><span class="label">今日能耗</span><span class="value">124 kW·h</span></div>
+              <div class="status-item"><span class="label">当前负载</span><span class="value demo-val">42%<span class="demo-mark">（演示）</span></span></div>
+              <div class="status-item"><span class="label">今日能耗</span><span class="value demo-val">124 kW·h<span class="demo-mark">（演示）</span></span></div>
             </div>
           </div>
         </div>
@@ -176,9 +176,9 @@
           
           <div class="port-info-list">
             <div class="info-row"><span class="label">端口状态</span> <span class="value" :style="{color: getPortColor(selectedPort.status)}">{{ getPortStatusName(selectedPort.status) }}</span></div>
-            <div class="info-row"><span class="label">当前电压</span> <span class="value">220V</span></div>
-            <div class="info-row"><span class="label">当前电流</span> <span class="value">{{ selectedPort.status === 'CHARGING' ? '2.1A' : '0A' }}</span></div>
-            <div class="info-row"><span class="label">已充时长</span> <span class="value">{{ selectedPort.status === 'CHARGING' ? '1h 23m' : '--' }}</span></div>
+            <div class="info-row"><span class="label">当前电压</span> <span class="value demo-val">220V<span class="demo-mark">（演示）</span></span></div>
+            <div class="info-row"><span class="label">当前电流</span> <span class="value demo-val">{{ selectedPort.status === 'CHARGING' ? '2.1A' : '0A' }}<span class="demo-mark">（演示）</span></span></div>
+            <div class="info-row"><span class="label">已充时长</span> <span class="value demo-val">{{ selectedPort.status === 'CHARGING' ? '1h 23m' : '--' }}<span class="demo-mark">（演示）</span></span></div>
           </div>
         </div>
         <div class="panel detail-panel" v-else>
@@ -210,7 +210,7 @@
     <div class="bigscreen-body safety-view" v-show="activeTab === 'safety'">
       <aside class="bigscreen-left">
          <div class="panel">
-          <div class="panel-title">告警分布</div>
+          <div class="panel-title"><span>告警分布</span><span class="badge demo">演示</span></div>
           <div class="metric-grid">
             <div class="metric-item danger">
               <div class="metric-value">{{ alerts.length }}</div>
@@ -235,7 +235,7 @@
         <div class="panel">
           <div class="panel-title">
             <span>实时告警日志</span>
-            <span class="badge danger">{{ alerts.length }}</span>
+            <span class="badge demo">演示数据</span>
           </div>
           <div class="scroll-list alert-list">
             <div
@@ -248,7 +248,7 @@
                 <span class="item-time">{{ alert.createdTime }}</span>
               </div>
             </div>
-            <div v-if="alerts.length === 0" class="empty-tip">暂无告警</div>
+            <div class="empty-tip demo-tip" v-if="alerts.length === 0">暂无告警（当前为演示数据，未接入实时采集）</div>
           </div>
         </div>
       </main>
@@ -257,14 +257,14 @@
         <div class="panel">
           <div class="panel-title">
             <span>待处理工单</span>
-            <span class="badge warning">{{ pendingTickets.length }}</span>
+            <span class="badge demo">演示数据</span>
           </div>
           <div class="scroll-list ticket-list">
             <div v-for="ticket in pendingTickets" :key="ticket.id" class="scroll-item">
               <div class="item-title">{{ ticket.faultDesc }}</div>
               <div class="item-time">{{ ticket.createdTime }}</div>
             </div>
-            <div v-if="pendingTickets.length === 0" class="empty-tip">暂无待处理工单</div>
+            <div class="empty-tip demo-tip" v-if="pendingTickets.length === 0">暂无待处理工单（当前为演示数据，未接入实时采集）</div>
           </div>
         </div>
       </aside>
@@ -481,14 +481,14 @@ const applyDashboardData = (data) => {
 const applyParkingAreaData = (data) => {
     if (data?.areas) {
       parkingAreas.value = data.areas.map(area => {
-        const total = area.totalPorts || 10
-        const ports = []
-        for (let i = 1; i <= total; i++) {
-          let status = 'IDLE'
-          if (i <= (area.chargingPorts || 0)) status = 'CHARGING'
-          else if (i <= (area.chargingPorts || 0) + (area.faultPorts || 0)) status = 'FAULT'
-          ports.push({ id: i, portNumber: i, portName: `${i}号端口`, status })
-        }
+        // 直接使用后端返回的真实端口明细，不再按 totalPorts 伪造端口。
+        // 后端以 portNumber 升序返回；portName 经 ChargingPort#getPortCode 序列化为 portCode。
+        const ports = (area.ports || []).map(port => ({
+          id: port.id,
+          portNumber: port.portNo ?? port.portNumber,
+          portName: port.portCode ?? port.portName ?? `${port.portNo ?? port.portNumber}号端口`,
+          status: port.status
+        }))
         return { id: area.id, name: area.name, ports }
       })
       if (!selectedAreaId.value && parkingAreas.value.length > 0) {
@@ -988,4 +988,10 @@ onBeforeUnmount(() => {
 .item-time { font-size: 12px; color: #718096; white-space: nowrap; margin-left: 12px; }
 
 .empty-tip { text-align: center; color: #718096; padding: 40px 20px; font-size: 14px; }
+
+/* 演示数据隔离标记 */
+.badge.demo { background: rgba(148, 163, 184, 0.25); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: normal; letter-spacing: 1px; }
+.demo-mark { font-size: 11px; color: #94a3b8; font-weight: normal; margin-left: 4px; white-space: nowrap; }
+.demo-val { color: #94a3b8; }
+.demo-tip { font-size: 12px; color: #94a3b8; }
 </style>
