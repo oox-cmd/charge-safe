@@ -12,4 +12,7 @@
 - 三维场景必须通过显式映射绑定真实 `communityId`、`stationId`、`deviceId` 和 `portId`；模型节点名不得替代业务 ID。
 - Mock、静态或合成数据必须明确标识，不得表述为真实业务数据或实时数据。
 - 本地开发使用 Windows 原生 MySQL、Maven、Node.js 和 npm；不得重新引入 Docker 开发工作流。
+- 后端正式 Java 基线为 JDK 21；`charge-safe-backend/pom.xml` 的编译 release 与 Maven 运行时均必须保持为 21，不得新增 Java 17 兼容配置或以 JDK 17 规避测试失败。
+- 后端不得使用 Java preview feature、`--enable-preview`、无明确官方依据的 `--add-opens` 或 `--add-exports`。
+- 声明后端修改完成前，必须在 JDK 21 下重新执行完整测试与打包；测试不得依赖运行时动态 Agent 自附加。
 - 修改应保持范围最小；未经授权不修改业务源码、依赖、数据库结构、系统配置，不提交敏感文件。

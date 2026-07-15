@@ -8,7 +8,7 @@
 | 层级 | 技术 | 版本 |
 |------|------|------|
 | 框架 | Spring Boot | 3.2.5 |
-| 语言 | Java | 17+（本机使用 JDK 21）|
+| 语言 | Java | 21 |
 | ORM | MyBatis-Plus | 3.5.5 |
 | 数据库 | MySQL | 8.x |
 | 数据库迁移 | Flyway | 9.22.3 |
@@ -20,7 +20,7 @@
 
 ## 环境要求
 
-- **JDK 17 或以上**（注意：本机默认 `JAVA_HOME` 指向 JDK 8，启动前必须切换到 JDK 17+）
+- **JDK 21**（启动前确认 `JAVA_HOME` 与 `mvn -version` 都使用 JDK 21）
 - **Maven 3.8+**
 - **MySQL 8.x**（本机使用 `C:\Program Files\MySQL\MySQL Server 8.0`）
 - Maven 本地仓库已存在相关依赖（首次构建需联网下载）
@@ -36,7 +36,7 @@ GRANT ALL PRIVILEGES ON charge_safe_dev.* TO 'charge_safe_app'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Flyway 会在应用启动时自动执行 `src/main/resources/db/migration` 下的迁移脚本（V1→V5），无需手动建表。
+Flyway 会在应用启动时自动校验并执行 `src/main/resources/db/migration` 下的 pending 迁移（当前为 V1→V6），无需手动建表。
 
 ### 2. 启动（本地开发）
 
@@ -47,17 +47,20 @@ cd charge-safe-backend
 .\run-local.bat
 ```
 
-> 首次运行前请用记事本打开 `run-local.bat`，确认 `JAVA_HOME` 指向你机器上 JDK 17+ 的实际安装路径（脚本里已列出常见路径，取消注释即可）。
+> 首次运行前请用记事本打开 `run-local.bat`，确认 `JAVA_HOME` 指向你机器上 JDK 21 的实际安装路径。
 
 **方式二：命令行启动**
 
 ```powershell
 cd charge-safe-backend
 
-# 必须指定 JDK 17+（本机示例路径）
+# 必须指定 JDK 21（本机示例路径）
 $env:JAVA_HOME = "D:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot"
 $env:PATH = "C:\tools\apache-maven-3.9.8\bin;" + $env:PATH
 
+java -version
+mvn -version
+mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
@@ -69,7 +72,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 ### 3. 打包部署
 
 ```powershell
-mvn clean package -DskipTests
+mvn clean package
 java -jar target/charge-safe-backend-1.0.0.jar --spring.profiles.active=prod
 ```
 
@@ -77,7 +80,7 @@ java -jar target/charge-safe-backend-1.0.0.jar --spring.profiles.active=prod
 
 | 现象 | 原因 | 解决 |
 |------|------|------|
-| `无效的目标发行版: --release` | 默认 JAVA_HOME 指向 JDK 8 | 设置 JAVA_HOME 为 JDK 17+（run-local.bat 已内置配置，确认路径即可） |
+| `无效的目标发行版: --release` | Maven 未使用 JDK 21 | 设置 `JAVA_HOME` 与 PATH 为 JDK 21，再用 `mvn -version` 确认 |
 | `Port 8080 was already in use` | 端口被占用 | 修改 run-local.bat 顶部 `PORT=8082`，或命令行加 `-Dspring-boot.run.arguments=--server.port=8082` |
 | MySQL 连接失败 | MySQL 未启动/库不存在/密码错 | 确认 MySQL 服务运行中，且已执行上方建库 SQL |
 | 依赖下载失败 | 网络/镜像配置 | 配置 Maven 阿里云镜像或检查代理 |
@@ -187,7 +190,7 @@ com.chargesafe
 | V4 | `V4__add_community_coordinates.sql` | 社区经纬度字段 + 补充演示小区 |
 | V5 | `V5__adjust_property_admin_menus.sql` | 为物业管理员补充 `community:list:view` 权限 |
 
-新增结构变更必须提交新的迁移文件（如 `V6__xxx.sql`），版本号不得与已有重复。
+新增结构变更必须提交新的迁移文件（如 `V7__xxx.sql`），版本号不得与已有重复。
 
 ## 接口规范
 
@@ -200,8 +203,13 @@ com.chargesafe
 ## 测试
 
 ```powershell
-mvn test
+java -version
+mvn -version
+mvn clean test
 ```
+
+Maven 的 `Java version` 必须为 21。Surefire 会显式加载 BOM 管理的 Byte Buddy
+Agent，避免 Mockito 在 JDK 21 下运行时自附加。
 
 现有单元测试（`src/test`）：
 
@@ -211,7 +219,7 @@ mvn test
 ## 常见问题
 
 **1. 编译报错 `无效的目标发行版: --release`**
-原因：默认 `JAVA_HOME` 指向 JDK 8。解决：启动前将 `JAVA_HOME` 切换到 JDK 17+。
+原因：`JAVA_HOME` 或 PATH 未指向 JDK 21。解决：切换到 JDK 21 后重新执行 `mvn -version`。
 
 **2. 启动报 `Port 8080 was already in use`**
 原因：端口被占用。解决：更换端口 `mvn spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--server.port=8082`。

@@ -14,7 +14,7 @@ ChargeSafe 是一个面向小区、园区、学校宿舍区、写字楼等场景
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Java 17 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT · Flyway · Caffeine Cache |
+| 后端 | Java 21 · Spring Boot 3.2.5 · MyBatis-Plus 3.5.5 · MySQL 8.x · JWT · Flyway · Caffeine Cache |
 | Web 管理端 | Vue 3 · Vite · Element Plus · Pinia · Axios · ECharts |
 | 小程序端 | uni-app · Vue 3 |
 | 接口文档 | Knife4j (Swagger) |
@@ -114,7 +114,7 @@ charge-safe/
 ### 1. 环境要求
 
 - Git
-- JDK 17
+- JDK 21
 - Maven 3.8+
 - Node.js 20.19+（同时满足管理端 Vite 8 和小程序端 Vite 5）
 - npm
@@ -159,9 +159,14 @@ Windows 直接运行：
 
 ```bash
 cd charge-safe-backend
+java -version
+mvn -version
 mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
+
+`java -version` 与 Maven 输出中的 `Java version` 都必须为 21；后端不再以 JDK 17
+作为测试或构建兜底。
 
 WSL2 NAT 模式下直接运行：
 

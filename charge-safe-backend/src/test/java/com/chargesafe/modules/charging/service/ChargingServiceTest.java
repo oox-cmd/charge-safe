@@ -1,6 +1,5 @@
 package com.chargesafe.modules.charging.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.chargesafe.common.BusinessException;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
@@ -21,14 +20,13 @@ import com.chargesafe.modules.device.mapper.ChargingDeviceMapper;
 import com.chargesafe.modules.device.mapper.ChargingPortMapper;
 import com.chargesafe.modules.notification.entity.Notification;
 import com.chargesafe.modules.notification.mapper.NotificationMapper;
+import com.chargesafe.modules.user.mapper.SysUserMapper;
+import com.chargesafe.security.LoginUser;
+import com.chargesafe.security.UserContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.mockito.MockMakers;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -38,27 +36,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class ChargingServiceTest {
 
-    @Mock
     private ChargingReservationMapper reservationMapper;
-    @Mock
     private ChargingOrderMapper orderMapper;
-    @Mock
     private ChargingPortMapper portMapper;
-    @Mock
     private ChargingDeviceMapper deviceMapper;
-    @Mock
     private ParkingAreaMapper parkingAreaMapper;
-    @Mock
     private NotificationMapper notificationMapper;
+    private SysUserMapper userMapper;
 
-    @InjectMocks
     private ChargingServiceImpl chargingService;
 
     private static final Long TEST_USER_ID = 1L;
@@ -71,14 +60,26 @@ class ChargingServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 通过反射设置 UserContext 的 userId（简化测试）
-        // 实际项目中可能需要 Mock UserContext
-        ReflectionTestUtils.setField(chargingService, "reservationMapper", reservationMapper);
-        ReflectionTestUtils.setField(chargingService, "orderMapper", orderMapper);
-        ReflectionTestUtils.setField(chargingService, "portMapper", portMapper);
-        ReflectionTestUtils.setField(chargingService, "deviceMapper", deviceMapper);
-        ReflectionTestUtils.setField(chargingService, "parkingAreaMapper", parkingAreaMapper);
-        ReflectionTestUtils.setField(chargingService, "notificationMapper", notificationMapper);
+        reservationMapper = mock(ChargingReservationMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        orderMapper = mock(ChargingOrderMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        portMapper = mock(ChargingPortMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        deviceMapper = mock(ChargingDeviceMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        parkingAreaMapper = mock(ParkingAreaMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        notificationMapper = mock(NotificationMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        userMapper = mock(SysUserMapper.class, withSettings().mockMaker(MockMakers.PROXY));
+        chargingService = new ChargingServiceImpl(
+                reservationMapper,
+                orderMapper,
+                portMapper,
+                deviceMapper,
+                parkingAreaMapper,
+                notificationMapper,
+                userMapper);
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContext.remove();
     }
 
     // ==================== createReservation 测试 ====================
@@ -87,7 +88,7 @@ class ChargingServiceTest {
     void createReservation_shouldSucceed_whenPortIdleAndNoActiveReservation() {
         // Given: 端口空闲，用户无有效预约，端口无有效预约
         mockUserContext(TEST_USER_ID);
-        when(reservationMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
         when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
         when(deviceMapper.selectById(anyLong())).thenReturn(createDevice());
         when(parkingAreaMapper.selectById(anyLong())).thenReturn(createParkingArea());
@@ -113,7 +114,7 @@ class ChargingServiceTest {
     void createReservation_shouldFail_whenUserHasActiveReservation() {
         // Given: 用户已有有效预约
         mockUserContext(TEST_USER_ID);
-        when(reservationMapper.selectCount(any(LambdaQueryWrapper.class)))
+        when(reservationMapper.selectCount(any()))
                 .thenReturn(1L)  // 用户有效预约计数
                 .thenReturn(0L); // 端口有效预约计数
 
@@ -130,7 +131,7 @@ class ChargingServiceTest {
     void createReservation_shouldFail_whenPortHasActiveReservation() {
         // Given: 端口已有有效预约
         mockUserContext(TEST_USER_ID);
-        when(reservationMapper.selectCount(any(LambdaQueryWrapper.class)))
+        when(reservationMapper.selectCount(any()))
                 .thenReturn(0L)  // 用户有效预约计数
                 .thenReturn(1L); // 端口有效预约计数
 
@@ -147,7 +148,7 @@ class ChargingServiceTest {
     void createReservation_shouldFail_whenPortNotIdle() {
         // Given: 端口非空闲状态
         mockUserContext(TEST_USER_ID);
-        when(reservationMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
         when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.CHARGING));
 
         ReservationDTO dto = new ReservationDTO();
@@ -376,20 +377,11 @@ class ChargingServiceTest {
     // ==================== 辅助方法 ====================
 
     private void mockUserContext(Long userId) {
-        try {
-            // 通过反射设置 UserContext 的 ThreadLocal<LoginUser>
-            var field = com.chargesafe.security.UserContext.class.getDeclaredField("USER_HOLDER");
-            field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            var threadLocal = (ThreadLocal<com.chargesafe.security.LoginUser>) field.get(null);
-            com.chargesafe.security.LoginUser loginUser = new com.chargesafe.security.LoginUser();
-            loginUser.setUserId(userId);
-            loginUser.setUsername("testuser");
-            loginUser.setRoleCode("RESIDENT");
-            threadLocal.set(loginUser);
-        } catch (Exception e) {
-            // 如果无法设置，忽略（测试环境可能没有完整上下文）
-        }
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUserId(userId);
+        loginUser.setUsername("testuser");
+        loginUser.setRoleCode("RESIDENT");
+        UserContext.setUser(loginUser);
     }
 
     private ChargingPort createPort(PortStatus status) {

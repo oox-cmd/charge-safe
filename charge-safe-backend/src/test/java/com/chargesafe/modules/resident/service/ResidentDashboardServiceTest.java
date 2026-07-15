@@ -122,7 +122,7 @@ class ResidentDashboardServiceTest {
             assertThat(item.getUnavailableCount()).isEqualTo(4);
         });
 
-        ArgumentCaptor<LambdaQueryWrapper<ParkingArea>> areaQuery = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        ArgumentCaptor<LambdaQueryWrapper<ParkingArea>> areaQuery = lambdaQueryCaptor();
         verify(parkingAreaMapper).selectList(areaQuery.capture());
         assertThat(areaQuery.getValue().getSqlSegment()).contains("community_id");
         assertThat(areaQuery.getValue().getParamNameValuePairs().values()).contains(COMMUNITY_ID);
@@ -156,5 +156,10 @@ class ResidentDashboardServiceTest {
         port.setDeviceId(DEVICE_ID);
         port.setStatus(status.getCode());
         return port;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private ArgumentCaptor<LambdaQueryWrapper<ParkingArea>> lambdaQueryCaptor() {
+        return ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
     }
 }

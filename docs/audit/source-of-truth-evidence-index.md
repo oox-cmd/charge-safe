@@ -5,6 +5,7 @@
 > 增量更新：2026-07-15 JWT fail-open 修复，提交待本次提交生成。
 > 增量更新：2026-07-15 权限码一致性修复随本次提交固化，哈希以 Git 历史为准。
 > 增量更新：2026-07-15 管理运维大屏与居民页面访问模型拆分；新增 V6、居民社区范围接口和路由权限，哈希以 Git 历史为准。
+> 增量更新：2026-07-15 后端构建基线统一至 Java 21；Surefire 显式加载 Byte Buddy Agent，消除 Mockito 运行时自附加警告。
 
 ## 1. 源码事实矩阵
 
@@ -27,8 +28,9 @@
 | 居民页面 | `/resident/dashboard` 要求 `resident:dashboard:view`；接口不接受客户端社区范围，使用 `UserContext.communityId` 从查询层限定社区，只返回安全精简 DTO | `views/resident/Dashboard.vue`、`ResidentDashboardController.java`、`ResidentDashboardServiceImpl.java`、`ResidentDashboardVO.java` | 最小真实二维页面已实现，不含预约动作或三维展示 | 后续业务闭环保持居民数据域 |
 | 数据库 | 23 张 Flyway 建表；逻辑关联，无物理外键 | V1、V3 | 设计文档过时 | 以迁移为唯一结构来源 |
 | Flyway | V1-V6，`classpath:db/migration`；V6 只新增隐藏权限 `resident:dashboard:view` 并通过稳定角色码与权限码关联 RESIDENT | `application.yml`、`V6__add_resident_dashboard_permission.sql` | V1-V5 checksum 未变，V6 已在 Windows MySQL 成功执行 | 禁止改已发布迁移 |
+| Java 构建 | `java.version`、`maven.compiler.release` 均为 21，Enforcer 要求 `[21,22)`；编译器显式启用注解处理 | `charge-safe-backend/pom.xml` | Maven 不再接受 Java 17 或未来 JDK 作为正式构建运行时 | JDK 21 下执行完整测试与打包 |
 | 本地开发 | Windows MySQL；WSL 动态网关 | local profile、WSL 脚本 | README 较准确 | 保持无 Docker |
-| 测试 | 47 项；新增居民服务社区隔离、居民/管理 HTTP 权限、V6 契约和前端路由静态契约，2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `ResidentDashboardServiceTest.java`、`DashboardAccessHttpTest.java`、`ResidentDashboardPermissionMigrationTest.java`、`DashboardRouteAccessContractTest.java`、既有 JWT/权限测试 | 访问边界已有后端回归；管理端无测试框架，使用静态契约、构建和浏览器冒烟补足 | 后续补正式管理端 router/store 测试基础 |
+| 测试 | 47 项；Surefire 在 JVM 启动时使用 BOM 管理的 Byte Buddy Agent，Mockito 不再自附加；2026-07-15 OpenJDK 21.0.11 下完整测试和打包通过 | `pom.xml`、`src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`、`ChargingServiceTest.java`、既有 JWT/权限测试 | 访问边界已有后端回归；管理端无测试框架，使用静态契约、构建和浏览器冒烟补足 | 后续补正式管理端 router/store 测试基础 |
 
 ## 2. 后端接口映射
 
@@ -188,7 +190,9 @@ V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTA
 
 | 命令 | 2026-07-14 结果 | 说明 |
 | --- | --- | --- |
-| `mvn clean test` | 失败 | 16 项中 1 通过，15 项因 JDK 21 下 Mockito/Byte Buddy agent 自附加失败；无业务断言失败证据 |
+| `mvn clean test`（2026-07-14，历史） | 失败 | 16 项中 1 通过，15 项因 JDK 21 下 Mockito/Byte Buddy agent 自附加失败；无业务断言失败证据 |
+| `mvn clean test`（2026-07-15，Java 21） | 通过 | 47/47；`javac [release 21]`，无动态 Agent 自附加警告 |
+| `mvn clean package`（2026-07-15，Java 21） | 通过 | 47/47，Spring Boot 可执行 jar 已生成 |
 | `npm run build`（admin） | 通过 | Vite 8.1.2；存在 >500 kB chunk、Lottie `eval` 等警告 |
 | `npx -y npm@10.9.8 run build:mp-weixin` | 通过 | 生成 `dist/build/mp-weixin`，目录被忽略 |
 | local Profile | 本轮未启动 | 避免修改数据库/运行态；历史基线为 Windows MySQL |

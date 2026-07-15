@@ -1,5 +1,7 @@
 # ChargeSafe 项目源码事实核验报告
 
+> 历史审查归档：本文中关于 Java 17 的条目反映原审查时的 `pom.xml`，不再是当前构建说明。当前后端正式基线以 `charge-safe-backend/pom.xml`、`README.md` 与 `docs/audit/source-of-truth-evidence-index.md` 为准，均为 Java 21。
+
 > 本报告基于项目源码、SQL 脚本、配置文件、已有文档的实际阅读结果，所有结论均附有证据。
 
 ---

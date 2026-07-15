@@ -6,6 +6,7 @@
 > 状态更新：2026-07-15 已关闭 JWT 认证过滤器 fail-open 路径；修复提交待本次提交生成。其余审查结论除明确标记外不变。
 > 状态更新：2026-07-15 已统一 Controller、V3 菜单数据和管理端按钮使用的现有权限码；修复随本次提交固化，哈希以 Git 历史为准。未对 RBAC 模型或角色绑定重新设计。
 > 状态更新：2026-07-15 已将管理运维大屏与居民充电可用性页面拆分；新增 V6 居民专用权限、社区范围接口和最小真实页面。三级三维管理大屏仍未实现。
+> 状态更新：2026-07-15 已将后端正式构建基线统一为 Java 21；完整测试与打包为 47/47 通过，Mockito/Byte Buddy 改为 Surefire 启动时显式 Agent，不再运行时自附加。
 
 ## 1. 审查范围与方法
 
@@ -17,13 +18,13 @@
 
 | 范围 | 当前事实 | 证据 |
 | --- | --- | --- |
-| 后端 | Spring Boot 3.2.5、Java 17 编译目标、MyBatis-Plus 3.5.5、Flyway、MySQL、JWT | `charge-safe-backend/pom.xml` |
+| 后端 | Spring Boot 3.2.5、Java 21 编译目标与 JDK 21 Enforcer、MyBatis-Plus 3.5.5、Flyway、MySQL、JWT | `charge-safe-backend/pom.xml` |
 | 管理端 | Vue 3、Vite 8、Element Plus、Pinia 3、ECharts 6、Axios、Lottie | `charge-safe-admin/package.json` |
 | 小程序 | uni-app、Vue 3.4.21、Pinia 2.2.4、Vite 5；固定 npm 10.9.8 | `charge-safe-miniapp/package.json`、`package-lock.json` |
 | 数据库 | Windows 原生 MySQL 为本地开发主方案；WSL 脚本动态解析 Windows 网关 | `README.md`、`application-local.yml`、`scripts/dev-backend-wsl.sh` |
 | 迁移 | `classpath:db/migration`，真实目录含 V1 至 V6；V6 只增加居民页面权限数据 | `application.yml`、`src/main/resources/db/migration/` |
 | 容器 | 当前仓库没有 Compose、Dockerfile 或 Docker Profile；本地开发不要求 Docker | 全仓库文件清单、`README.md` |
-| 测试 | 9 个测试类、47 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`DashboardAccessHttpTest.java`、`ResidentDashboardServiceTest.java`、权限契约测试、2026-07-15 验证记录 |
+| 测试 | 9 个测试类、47 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过。Surefire 显式启动 Byte Buddy Agent，测试不再出现动态自附加警告 | `pom.xml`、`src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`、`src/test/java/`、2026-07-15 验证记录 |
 
 `application-h2.yml` 和 H2 SQL 存在，但 `pom.xml` 没有 H2 依赖，不能据此声称 H2 测试环境可运行。
 
@@ -50,7 +51,7 @@
 | 小程序 | 部分实现 | 17 个页面可导航，但核心认证、预约、充电、订单、报修多为 Mock/静态 |
 | 管理 2D 大屏 | 部分实现（访问边界已修复） | `/bigscreen` 需要登录和 `statistics:bigscreen:view`，专用聚合接口受同一权限保护；页面仍有合成端口和静态告警/电气指标 |
 | 居民充电可用性页 | 基本实现 | `/resident/dashboard` 需要 `resident:dashboard:view`；只读取登录用户所属社区的车棚与真实端口状态，不是管理大屏或三级三维大屏 |
-| 自动化测试 | 部分实现 | 当前 9 个测试类、47 个测试均已在 WSL/OpenJDK 21 下通过；覆盖仍集中在认证、权限、充电、菜单树和本次大屏访问拆分 |
+| 自动化测试 | 部分实现 | 当前 9 个测试类、47 个测试均已在 WSL/OpenJDK 21 下通过；构建统一为 release 21，测试 Agent 显式配置；覆盖仍集中在认证、权限、充电、菜单树和本次大屏访问拆分 |
 | 部门管理 | 未实现 | 管理端明确标记为前端演示数据，无后端模块 |
 | 设备分类 | 未实现 | 管理端明确标记为前端演示数据，无后端模块 |
 | 三级三维大屏 | 未实现 | 无 Three.js/MapLibre/Cesium 依赖、场景状态机、模型或三维接口 |
@@ -132,7 +133,7 @@
 5. 小程序核心业务链路没有真实闭环。
 6. 大屏端口、告警和电气指标混入合成/静态数据。
 7. ~~管理大屏匿名路由、居民跳转与数据访问模型冲突。~~ **已于 2026-07-15 拆分管理与居民访问模型；V6、居民社区隔离接口、路由权限、47 项后端测试、管理端构建及五角色只读运行验证通过。管理大屏中的合成/静态内容仍归第 6 项。**
-8. JDK 17 要求与当前 JDK 21 测试环境不一致，自动化测试未形成稳定绿线。
+8. ~~JDK 17 要求与当前 JDK 21 测试环境不一致，自动化测试未形成稳定绿线。~~ **已于 2026-07-15 完成：POM 统一 Java/release 21、Enforcer 限定 JDK 21、Surefire 显式 Agent；47 项测试与打包通过。**
 
 ### P2（10 项，建议本阶段完善）
 
