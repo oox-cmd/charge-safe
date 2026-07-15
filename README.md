@@ -229,8 +229,24 @@ PowerShell 或 WSL：
 ```bash
 cd charge-safe-miniapp
 npx npm@10.9.8 ci
+copy .env.example .env.local  # PowerShell；WSL 使用 cp
+# 编辑 .env.local，设置 VITE_API_BASE_URL
 npx npm@10.9.8 run build:mp-weixin
 ```
+
+`VITE_API_BASE_URL` 是请求和上传共用的服务端 origin，未配置时运行期会明确报错，
+不会回退到 localhost。不要在仓库中提交个人局域网 IP：
+
+- H5 与后端同源或已有反向代理时可设为 `/`；分离运行时填写浏览器可访问的完整 origin。
+- 微信开发者工具填写开发机的局域网 origin；若启用“不校验合法域名”只用于本地调试。
+- 真机填写手机能访问的开发机局域网 origin，不能使用 localhost、`127.0.0.1` 或 WSL NAT 地址；同时确认防火墙仅开放所需局域网范围。
+- 生产环境使用已备案、已加入微信 request/uploadFile 合法域名的 HTTPS origin。
+
+地址只填写到 origin；若误填为以 `/api` 结尾，当前拼接器也会避免生成重复
+`/api/api`。开发 Mock 缺省关闭，只有开发命令且 `.env.local` 明确设置
+`VITE_USE_MOCK=true` 才启用，并会在应用中标注模拟数据。真实密码登录使用
+后端现有的 `username/password`，短信登录、注册和找回密码尚未接入后端，因此
+登录页不再展示这些入口。
 
 构建产物位于 `charge-safe-miniapp/dist/build/mp-weixin`，可使用微信开发者工具
 导入。以上命令已在无 Docker 的 WSL 环境实际验证。

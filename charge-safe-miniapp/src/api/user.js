@@ -2,6 +2,7 @@
  * 用户 API
  */
 import request from './request'
+import { getConfiguredApiUrl } from '@/config/api.mjs'
 
 export function getUserInfo() {
   return request({ url: '/api/user/info', method: 'GET' })
@@ -26,7 +27,7 @@ export function uploadAvatar(filePath) {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token')
     uni.uploadFile({
-      url: 'http://localhost:8080/api/user/avatar',
+      url: getConfiguredApiUrl('/api/user/avatar'),
       filePath,
       name: 'file',
       header: token ? { 'Authorization': `Bearer ${token}` } : {},

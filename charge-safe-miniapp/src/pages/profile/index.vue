@@ -10,7 +10,7 @@
         </view>
         <view class="user-col">
           <text class="user-name">{{ userStore.nickname || '未设置昵称' }}</text>
-          <text class="user-phone">{{ maskPhone(userStore.phone) }}</text>
+          <text class="user-phone">{{ userStore.username || maskPhone(userStore.phone) }}</text>
         </view>
         <view class="edit-tag" @click="goEditProfile"><text>编辑资料 ›</text></view>
       </view>

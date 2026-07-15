@@ -16,7 +16,7 @@ test('未注册的请求原样交给真实 uni.request', () => {
     logger: () => {}
   })
 
-  const options = { method: 'GET', url: 'http://localhost:8080/api/orders/my' }
+  const options = { method: 'GET', url: 'https://api.example.com/api/orders/my' }
   assert.equal(request(options), 'real-request-result')
   assert.deepEqual(calls, [options])
 })
@@ -32,7 +32,7 @@ test('已注册请求返回带明确 Mock 标识的响应', async () => {
 
   await request({
     method: 'GET',
-    url: 'http://localhost:8080/api/user/info',
+    url: 'https://api.example.com/api/user/info',
     success: (value) => { response = value }
   })
 

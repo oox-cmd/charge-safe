@@ -7,6 +7,10 @@ export function loginByPassword(params) {
   return request({ url: '/api/auth/login', method: 'POST', data: params })
 }
 
+export function getCurrentUser() {
+  return request({ url: '/api/auth/me', method: 'GET' })
+}
+
 export function loginBySms(params) {
   return request({ url: '/api/auth/login/sms', method: 'POST', data: params })
 }

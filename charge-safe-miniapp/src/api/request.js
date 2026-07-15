@@ -1,11 +1,22 @@
-const BASE_URL = 'http://localhost:8080'
+import { getConfiguredApiUrl } from '@/config/api.mjs'
+import { parseApiResponse } from './response.mjs'
+
 export { USE_MOCK } from '@/config/runtime.mjs'
 
 const request = (options) => {
   return new Promise((resolve, reject) => {
+    let url
+    try {
+      url = getConfiguredApiUrl(options.url)
+    } catch (error) {
+      uni.showToast({ title: error.message, icon: 'none' })
+      reject(error)
+      return
+    }
+
     const token = uni.getStorageSync('token')
     uni.request({
-      url: BASE_URL + options.url,
+      url,
       method: options.method || 'GET',
       data: options.data,
       header: {
@@ -13,16 +24,17 @@ const request = (options) => {
         'Authorization': token ? `Bearer ${token}` : ''
       },
       success: (res) => {
-        if (res.statusCode === 200) {
-          resolve(res.data)
-        } else if (res.statusCode === 401) {
-          uni.removeStorageSync('token')
-          uni.removeStorageSync('userInfo')
-          uni.redirectTo({ url: '/pages/login' })
-          reject(new Error('未登录'))
-        } else {
-          uni.showToast({ title: res.data?.message || '请求失败', icon: 'none' })
-          reject(new Error(res.data?.message || '请求失败'))
+        try {
+          resolve(parseApiResponse(res))
+        } catch (error) {
+          if (error.statusCode === 401 || error.code === 401) {
+            uni.removeStorageSync('token')
+            uni.removeStorageSync('userInfo')
+            uni.redirectTo({ url: '/pages/login' })
+          } else {
+            uni.showToast({ title: error.message, icon: 'none' })
+          }
+          reject(error)
         }
       },
       fail: (err) => {

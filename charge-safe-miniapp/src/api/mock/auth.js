@@ -4,31 +4,35 @@
 import { registerMock } from './registry'
 
 const MOCK_SMS_CODE = '123456'
-const BASE_URL = 'http://localhost:8080'
-
 // 测试账号
 const accounts = [
-  { phone: '13800000001', password: '123456', nickname: '张先生', userId: 1001, token: 'mock_token_1001' },
-  { phone: '13800000002', password: '123456', nickname: '李女士', userId: 1002, token: 'mock_token_1002' },
-  { phone: '13800000003', password: '123456', nickname: '王师傅', userId: 1003, token: 'mock_token_1003' }
+  { username: 'resident', phone: '13800000001', password: '123456', nickname: '张先生', userId: 1001, token: 'mock_token_1001' },
+  { username: 'resident2', phone: '13800000002', password: '123456', nickname: '李女士', userId: 1002, token: 'mock_token_1002' },
+  { username: 'maintainer', phone: '13800000003', password: '123456', nickname: '王师傅', userId: 1003, token: 'mock_token_1003' }
 ]
 const registeredPhones = new Set(accounts.map(a => a.phone))
 
 // ============ 密码登录 ============
-registerMock('POST', `${BASE_URL}/api/auth/login`, (data) => {
-  const { phone, password } = data
-  if (!phone || !password) return { code: 500, message: '手机号和密码不能为空', data: null }
-  const acc = accounts.find(a => a.phone === phone)
+registerMock('POST', '/api/auth/login', (data) => {
+  const { username, password } = data
+  if (!username || !password) return { code: 500, message: '用户名和密码不能为空', data: null }
+  const acc = accounts.find(a => a.username === username)
   if (!acc) return { code: 500, message: '账号不存在，请先注册', data: null }
   if (acc.password !== password) return { code: 500, message: '密码错误', data: null }
   return {
     code: 200, message: 'success',
-    data: { token: acc.token, userId: acc.userId, phone: acc.phone, nickname: acc.nickname }
+    data: { token: acc.token, userId: acc.userId, username: acc.username, nickname: acc.nickname, roleCode: 'RESIDENT', roleName: '居民', communityId: 1 }
   }
 })
 
+registerMock('GET', '/api/auth/me', () => ({
+  code: 200,
+  message: 'success',
+  data: { token: 'mock_token_1001', userId: 1001, username: 'resident', nickname: '张先生', roleCode: 'RESIDENT', roleName: '居民', communityId: 1 }
+}))
+
 // ============ 短信登录 ============
-registerMock('POST', `${BASE_URL}/api/auth/login/sms`, (data) => {
+registerMock('POST', '/api/auth/login/sms', (data) => {
   const { phone, smsCode } = data
   if (!phone) return { code: 500, message: '手机号不能为空', data: null }
   if (smsCode !== MOCK_SMS_CODE) return { code: 500, message: '验证码错误', data: null }
@@ -45,7 +49,7 @@ registerMock('POST', `${BASE_URL}/api/auth/login/sms`, (data) => {
 })
 
 // ============ 发送验证码 ============
-registerMock('POST', `${BASE_URL}/api/auth/sms/send`, (data) => {
+registerMock('POST', '/api/auth/sms/send', (data) => {
   const { phone } = data
   if (!phone) return { code: 500, message: '手机号不能为空', data: null }
   if (!/^1[3-9]\d{9}$/.test(phone)) return { code: 500, message: '手机号格式不正确', data: null }
@@ -54,7 +58,7 @@ registerMock('POST', `${BASE_URL}/api/auth/sms/send`, (data) => {
 })
 
 // ============ 注册 ============
-registerMock('POST', `${BASE_URL}/api/auth/register`, (data) => {
+registerMock('POST', '/api/auth/register', (data) => {
   const { phone, password, confirmPassword, nickname } = data
   if (!phone) return { code: 500, message: '手机号不能为空', data: null }
   if (!/^1[3-9]\d{9}$/.test(phone)) return { code: 500, message: '手机号格式不正确', data: null }
@@ -74,7 +78,7 @@ registerMock('POST', `${BASE_URL}/api/auth/register`, (data) => {
 })
 
 // ============ 重置密码 ============
-registerMock('POST', `${BASE_URL}/api/auth/password/reset`, (data) => {
+registerMock('POST', '/api/auth/password/reset', (data) => {
   const { phone, smsCode, newPassword, confirmPassword } = data
   if (!phone) return { code: 500, message: '手机号不能为空', data: null }
   if (smsCode !== MOCK_SMS_CODE) return { code: 500, message: '验证码错误', data: null }

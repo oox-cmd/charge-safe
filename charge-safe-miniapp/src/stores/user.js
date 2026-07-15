@@ -3,16 +3,19 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { loginByPassword, loginBySms } from '@/api/auth'
-import { getUserInfo, updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, changePassword as changePasswordApi } from '@/api/user'
+import { getCurrentUser, loginByPassword, loginBySms } from '@/api/auth'
+import { updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, changePassword as changePasswordApi } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
   const savedCommunity = uni.getStorageSync('community') || {}
   const token = ref(uni.getStorageSync('token') || '')
   const userId = ref(null)
+  const username = ref('')
   const phone = ref('')
   const nickname = ref('')
   const avatar = ref('')
+  const roleCode = ref('')
+  const roleName = ref('')
   const communityId = ref(savedCommunity.id || null)
   const communityName = ref(savedCommunity.name || '')
 
@@ -21,13 +24,18 @@ export const useUserStore = defineStore('user', () => {
   function saveLoginState(data) {
     token.value = data.token
     userId.value = data.userId
-    phone.value = data.phone
+    username.value = data.username || ''
+    phone.value = data.phone || ''
     nickname.value = data.nickname
     avatar.value = data.avatar || ''
+    roleCode.value = data.roleCode || ''
+    roleName.value = data.roleName || ''
+    communityId.value = data.communityId || null
     uni.setStorageSync('token', data.token)
     uni.setStorageSync('userInfo', {
-      userId: data.userId, phone: data.phone,
-      nickname: data.nickname, avatar: data.avatar || ''
+      userId: data.userId, username: data.username || '', phone: data.phone || '',
+      nickname: data.nickname, avatar: data.avatar || '', roleCode: data.roleCode || '',
+      roleName: data.roleName || '', communityId: data.communityId || null
     })
   }
 
@@ -45,12 +53,16 @@ export const useUserStore = defineStore('user', () => {
 
   async function fetchUserInfo() {
     try {
-      const res = await getUserInfo()
+      const res = await getCurrentUser()
       if (res.code === 200 && res.data) {
         userId.value = res.data.userId
-        phone.value = res.data.phone
+        username.value = res.data.username || ''
+        phone.value = res.data.phone || ''
         nickname.value = res.data.nickname
         avatar.value = res.data.avatar || ''
+        roleCode.value = res.data.roleCode || ''
+        roleName.value = res.data.roleName || ''
+        communityId.value = res.data.communityId || null
         return true
       }
     } catch { /* ignore */ }
@@ -99,9 +111,12 @@ export const useUserStore = defineStore('user', () => {
   function logout() {
     token.value = ''
     userId.value = null
+    username.value = ''
     phone.value = ''
     nickname.value = ''
     avatar.value = ''
+    roleCode.value = ''
+    roleName.value = ''
     communityId.value = null
     communityName.value = ''
     uni.removeStorageSync('token')
@@ -109,6 +124,6 @@ export const useUserStore = defineStore('user', () => {
     uni.removeStorageSync('community')
   }
 
-  return { token, userId, phone, nickname, avatar, communityId, communityName, isLoggedIn,
+  return { token, userId, username, phone, nickname, avatar, roleCode, roleName, communityId, communityName, isLoggedIn,
     loginWithPassword, loginWithSms, fetchUserInfo, updateProfile, uploadAvatar, changePassword, setCommunity, logout, saveLoginState }
 })

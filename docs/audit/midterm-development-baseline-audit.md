@@ -169,7 +169,7 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | A | 居民与管理大屏访问模型 | 已完成，无需处理 | `/bigscreen` 与 `/api/statistics/bigscreen` 均要求 `statistics:bigscreen:view`；`/resident/dashboard`、`resident:dashboard:view`、V6 角色绑定与按登录社区查询均存在 | 否 | 只保留证据，不重复重构 | 无 | 否 |
 | B | 小程序 Mock | 已完成，无需处理 | 历史上 `src/main.js` 无条件导入并安装 Mock；当前由 `resolveMockEnabled` 限定为开发环境且 `VITE_USE_MOCK=true` 才安装，缺省和生产构建均关闭 | 否 | 保留开发 Mock，不允许真实失败回退 | 小程序请求/Mock/登录提示与测试 | 否 |
-| C | 小程序真机 API | 仍存在，必须处理 | 请求与上传写死 `http://localhost:8080`；Mock 注册也依赖固定 URL；无小程序环境模板；真实登录参数仍为 `phone` | 是 | 统一 `VITE_API_BASE_URL`、上传同源、缺失报错、真实登录契约对齐 | 小程序配置、请求、登录、README | 否 |
+| C | 小程序真机 API | 已完成，无需处理 | 历史上请求、上传和 Mock 注册写死 localhost，真实登录发送 `phone`；当前统一由 `VITE_API_BASE_URL` 派生，请求/上传同源，真实登录使用 `username/password` | 否 | 按 H5、开发者工具、真机和生产说明配置环境文件 | 小程序配置、请求、登录、README | 否 |
 | D | 预约与充电闭环 | 部分完成，需要补齐 | 后端已有事务、状态枚举和 `reservation_id`，但小程序预约/充电/订单为本地数组或 `setTimeout`；后端未完整约束跨社区、活动充电互斥与本人详情边界 | 是 | 先收紧后端状态机，再让居民页面使用真实 ID/API | charging 后端、测试、小程序核心页面 | 否 |
 | E | 管理大屏数据真实性 | 仍存在，必须处理 | `applyParkingAreaData` 按聚合数量生成循环 ID；告警、工单、隐患、电参、能耗为静态值；状态映射不完整 | 是 | 返回真实车棚/设备/端口明细；未接入数据明确标识 | statistics VO/service/test 与现有二维页 | 否 |
 | F | 自动测试与运行验证 | 部分完成，需要补齐 | 2026-07-15 新鲜基线为后端 47/47、管理端构建、小程序构建均通过；核心越权/重复操作/API 契约仍缺测试，local Profile 待最终只读验证 | 是 | 每批红测和回归，最终执行 local/Flyway/HTTP 冒烟 | 三端测试与过程记录 | 否 |
@@ -210,3 +210,19 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 - Mock 响应包含 `X-ChargeSafe-Mock: true`，应用启动和登录页均显示“开发模拟数据模式/非真实业务数据”。
 
 验证：红测因 `runtime.mjs` 模块缺失失败；实现后 Node 单元测试 2 个测试文件通过，小程序生产构建通过。API 地址仍是下一独立批次，不能因 Mock 已关闭而声称真机联调已经完成。
+
+### 11.4 小程序 API 与真实登录配置结果
+
+历史问题保留：普通请求、头像上传和 Mock handlers 曾分别写死 `http://localhost:8080`，真机的 localhost 指向手机自身；登录页发送 `phone/password`，与后端 `LoginDTO.username/password` 不一致；HTTP 200 的业务 403/500 又会被请求层 resolve。
+
+当前行为：
+
+- 普通请求与上传均通过 `getConfiguredApiUrl()` 从 `VITE_API_BASE_URL` 派生；业务源码、测试和 Mock 数据不再包含 localhost、`127.0.0.1`、个人 LAN/WSL IP；
+- 缺少配置时抛出包含 `VITE_API_BASE_URL` 的明确错误，不静默使用默认主机；
+- URL 规范化去除尾部斜杠，base 已包含 `/api` 时不会生成重复 `/api/api`；
+- H5 同源可显式配置 `/`，微信开发者工具和真机使用开发机可达 origin，生产使用微信合法 HTTPS 域名；配置示例不包含真实凭据或个人 IP；
+- 密码登录只提交 `username/password` 并保存后端返回的角色与社区；当前用户信息改读真实 `/api/auth/me`；
+- 后端不存在的短信登录、注册和找回密码入口已从真实登录页隐藏，历史页面暂保留为后续功能，未声称已接入；
+- HTTP 200 只有 body `code == 200` 才成功，401 保持清理登录态，业务 403/500 直接 reject 并显示后端消息。
+
+验证：配置/响应红测先因模块缺失失败，Mock 主机无关匹配红测先因导出缺失失败；实现后 Node 测试 4 个文件通过，`VITE_API_BASE_URL=/ npm run build:mp-weixin` 通过。真机实际网络连通性仍需在目标手机和局域网条件下执行，不能由构建结果替代。

@@ -261,3 +261,16 @@ V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTA
 | `charge-safe-miniapp/src/App.vue`、`pages/login.vue` | Mock 开启时向开发者/用户明确显示“模拟数据” |
 
 生产构建仍可能包含可供开发模式使用的 Mock 模块代码，但入口条件恒为关闭且不会安装请求拦截器；这与“生产不无条件 Mock”是同一可验证边界，不等于移除开发 Mock。
+
+### 9.2 API 配置与登录契约证据
+
+| 证据 | 当前事实 |
+| --- | --- |
+| `charge-safe-miniapp/.env.example` | 声明必填 `VITE_API_BASE_URL` 和默认关闭的 `VITE_USE_MOCK`，不含个人 IP/凭据 |
+| `src/config/api.mjs` | 统一规范化请求/上传 URL，缺失报错，处理尾斜杠与重复 `/api` |
+| `src/api/request.js`、`src/api/user.js` | 普通请求和上传共用相同配置来源；HTTP 与 body code 共同决定成功 |
+| `src/pages/login.vue` | 真实密码表单使用用户名；不展示尚无后端实现的短信/注册/找回入口 |
+| `src/stores/user.js`、`src/api/auth.js` | 登录保存 `username/roleCode/roleName/communityId`；当前用户读取 `/api/auth/me` |
+| `tests/config/api.test.mjs`、`tests/api/response.test.mjs` | 覆盖缺失配置、URL 拼接、主机无关路径、业务错误和 401 |
+
+头像上传目标虽然已经环境化，但后端当前仍没有 `/api/user/avatar`；因此“上传地址正确配置”不等于“头像上传业务已实现”。

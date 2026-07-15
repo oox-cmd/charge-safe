@@ -19,41 +19,22 @@
         </view>
       </view>
 
-      <!-- 双Tab切换 -->
-      <view class="tab-bar">
-        <view
-          :class="['tab', { active: mode === 'password' }]"
-          @click="mode = 'password'"
-        >
-          <text class="tab-text">密码登录</text>
-          <view class="tab-line"></view>
-        </view>
-        <view
-          :class="['tab', { active: mode === 'sms' }]"
-          @click="mode = 'sms'"
-        >
-          <text class="tab-text">验证码登录</text>
-          <view class="tab-line"></view>
-        </view>
-      </view>
-
       <!-- 表单 -->
       <view class="form-body">
-        <!-- 手机号 -->
+        <!-- 用户名 -->
         <view class="field">
-          <view class="field-icon">📱</view>
+          <view class="field-icon">👤</view>
           <input
             class="field-input"
-            v-model="form.phone"
-            type="number"
-            maxlength="11"
-            placeholder="请输入手机号"
+            v-model="form.username"
+            type="text"
+            maxlength="50"
+            placeholder="请输入用户名"
             placeholder-style="color:#c0c4cc"
           />
         </view>
 
-        <!-- 密码模式 -->
-        <view class="field" v-if="mode === 'password'">
+        <view class="field">
           <view class="field-icon">🔒</view>
           <input
             class="field-input"
@@ -68,41 +49,14 @@
           </view>
         </view>
 
-        <!-- 验证码模式 -->
-        <view class="field" v-if="mode === 'sms'">
-          <view class="field-icon">💬</view>
-          <input
-            class="field-input field-flex"
-            v-model="form.smsCode"
-            type="number"
-            maxlength="6"
-            placeholder="请输入短信验证码"
-            placeholder-style="color:#c0c4cc"
-          />
-          <view
-            :class="['sms-tag', { disabled: countdown > 0 }]"
-            @click="sendSms"
-          >
-            <text>{{ countdown > 0 ? countdown + 's 后重发' : '获取验证码' }}</text>
-          </view>
-        </view>
-
         <!-- 登录按钮 -->
         <button :loading="loading" class="btn-login" @click="handleLogin">登 录</button>
-
-        <!-- 底部链接 -->
-        <view class="card-footer">
-          <text class="footer-link" @click="goRegister">去注册</text>
-          <view class="footer-divider"></view>
-          <text class="footer-link" @click="goForgot">忘记密码</text>
-        </view>
       </view>
 
       <!-- Mock 账号提示 -->
       <view v-if="USE_MOCK" class="mock-tips">
         <text class="mock-item">开发模拟数据模式（非真实业务数据）</text>
-        <text class="mock-item">Mock 测试：13800000001 / 123456</text>
-        <text class="mock-item">验证码统一：123456</text>
+        <text class="mock-item">Mock 测试：resident / 123456</text>
       </view>
     </view>
   </view>
@@ -111,43 +65,22 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { sendSmsCode } from '@/api/auth'
 import { USE_MOCK } from '@/api/request'
-import { switchTab, showToast, isValidPhone } from '@/utils'
+import { switchTab, showToast } from '@/utils'
 
 const userStore = useUserStore()
-const mode = ref('password')
 const showPwd = ref(false)
 const loading = ref(false)
-const countdown = ref(0)
-let timer = null
 
-const form = reactive({ phone: '', password: '', smsCode: '' })
-
-async function sendSms() {
-  if (countdown.value > 0) return
-  if (!isValidPhone(form.phone)) return showToast('请输入正确的手机号')
-  try {
-    await sendSmsCode({ phone: form.phone, type: 'login' })
-    showToast('验证码已发送（Mock: 123456）')
-    countdown.value = 60
-    timer = setInterval(() => { countdown.value--; if (countdown.value <= 0) clearInterval(timer) }, 1000)
-  } catch { /* handled */ }
-}
+const form = reactive({ username: '', password: '' })
 
 async function handleLogin() {
-  if (!isValidPhone(form.phone)) return showToast('请输入正确的手机号')
-  if (mode.value === 'password' && !form.password) return showToast('请输入密码')
-  if (mode.value === 'sms' && !form.smsCode) return showToast('请输入验证码')
+  if (!form.username.trim()) return showToast('请输入用户名')
+  if (!form.password) return showToast('请输入密码')
 
   loading.value = true
   try {
-    let ok = false
-    if (mode.value === 'password') {
-      ok = await userStore.loginWithPassword({ phone: form.phone, password: form.password })
-    } else {
-      ok = await userStore.loginWithSms({ phone: form.phone, smsCode: form.smsCode })
-    }
+    const ok = await userStore.loginWithPassword({ username: form.username.trim(), password: form.password })
     if (ok) {
       showToast('登录成功')
       setTimeout(() => switchTab('/pages/index/index'), 500)
@@ -155,9 +88,6 @@ async function handleLogin() {
   } catch { /* handled */ }
   finally { loading.value = false }
 }
-
-function goRegister() { uni.navigateTo({ url: '/pages/register' }) }
-function goForgot() { uni.navigateTo({ url: '/pages/forgot-password' }) }
 </script>
 
 <style scoped>

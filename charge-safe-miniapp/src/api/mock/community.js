@@ -3,8 +3,6 @@
  */
 import { registerMock } from './registry'
 
-const BASE_URL = 'http://localhost:8080'
-
 // 5 个测试小区，分布在 3 个坐标区域
 const communities = [
   { id: 1, name: '阳光花园小区', address: '朝阳区建国路88号', lat: 39.9087, lng: 116.4716, parkingCount: 3, idlePorts: 8 },
@@ -15,12 +13,12 @@ const communities = [
 ]
 
 // ============ 获取小区列表 ============
-registerMock('GET', `${BASE_URL}/api/communities`, () => {
+registerMock('GET', '/api/communities', () => {
   return { code: 200, message: 'success', data: communities }
 })
 
 // ============ 根据坐标匹配最近小区 ============
-registerMock('GET', `${BASE_URL}/api/communities/nearest`, (data) => {
+registerMock('GET', '/api/communities/nearest', (data) => {
   const { lat, lng } = data
   // 简单距离计算，Mock 下直接返回第一个匹配的
   const sorted = [...communities].sort((a, b) => {
