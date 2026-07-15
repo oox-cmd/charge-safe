@@ -34,7 +34,7 @@ class PermissionCodeConsistencyTest {
         Set<String> missing = new HashSet<>(backendCodes);
         missing.removeAll(menuCodes);
 
-        assertTrue(missing.isEmpty(), "Controller permissions missing from V3 menu data: " + missing);
+        assertTrue(missing.isEmpty(), "Controller permissions missing from Flyway menu data: " + missing);
     }
 
     @Test
@@ -51,7 +51,7 @@ class PermissionCodeConsistencyTest {
         assertTrue(missingFromBackend.isEmpty(),
                 "Admin permissions missing from Controller annotations: " + missingFromBackend);
         assertTrue(missingFromMenu.isEmpty(),
-                "Admin permissions missing from V3 menu data: " + missingFromMenu);
+                "Admin permissions missing from Flyway menu data: " + missingFromMenu);
     }
 
     @Test
@@ -86,9 +86,17 @@ class PermissionCodeConsistencyTest {
     }
 
     private Set<String> migrationPermissionCodes() throws IOException {
-        String migration = Files.readString(Path.of(
-                "src/main/resources/db/migration/V3__add_menu_tables.sql"));
-        return matches(migration, SQL_PERMISSION);
+        Path migrationDirectory = Path.of("src/main/resources/db/migration");
+        Set<String> codes = new HashSet<>();
+        try (Stream<Path> paths = Files.list(migrationDirectory)) {
+            for (Path path : paths
+                    .filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().matches("V[0-9]+__.*\\.sql"))
+                    .toList()) {
+                codes.addAll(matches(Files.readString(path), SQL_PERMISSION));
+            }
+        }
+        return codes;
     }
 
     private Set<String> adminPermissionCodes() throws IOException {

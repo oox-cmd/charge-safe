@@ -3,6 +3,9 @@ package com.chargesafe.modules.statistics.controller;
 import com.chargesafe.common.Result;
 import com.chargesafe.modules.statistics.service.StatisticsService;
 import com.chargesafe.modules.statistics.vo.*;
+import com.chargesafe.security.DataScope;
+import com.chargesafe.security.RequiresPermission;
+import com.chargesafe.security.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,19 +21,30 @@ public class StatisticsController {
 
     private final StatisticsService statisticsService;
 
+    @Operation(summary = "获取管理运维大屏聚合数据")
+    @RequiresPermission("statistics:bigscreen:view")
+    @GetMapping("/bigscreen")
+    public Result<ManagementBigscreenVO> getBigscreen(@RequestParam(required = false) Long communityId) {
+        Long scopedCommunityId = DataScope.isPlatformAdmin() ? communityId : UserContext.getCommunityId();
+        return Result.success(statisticsService.getManagementBigscreen(scopedCommunityId));
+    }
+
     @Operation(summary = "获取仪表盘统计数据")
+    @RequiresPermission("dashboard:view")
     @GetMapping("/dashboard")
     public Result<DashboardVO> getDashboard(@RequestParam(required = false) Long communityId) {
         return Result.success(statisticsService.getDashboard(communityId));
     }
 
     @Operation(summary = "获取端口状态统计")
+    @RequiresPermission("dashboard:view")
     @GetMapping("/port-status")
     public Result<PortStatusStatisticsVO> getPortStatus(@RequestParam(required = false) Long communityId) {
         return Result.success(statisticsService.getPortStatusStatistics(communityId));
     }
 
     @Operation(summary = "获取订单趋势统计")
+    @RequiresPermission("statistics:analysis:view")
     @GetMapping("/order-trend")
     public Result<List<OrderTrendVO.DayTrend>> getOrderTrend(@RequestParam(required = false) Long communityId) {
         OrderTrendVO vo = statisticsService.getOrderTrend(communityId);
@@ -38,18 +52,21 @@ public class StatisticsController {
     }
 
     @Operation(summary = "获取维修工单状态汇总")
+    @RequiresPermission("statistics:analysis:view")
     @GetMapping("/repair-summary")
     public Result<RepairSummaryVO> getRepairSummary(@RequestParam(required = false) Long communityId) {
         return Result.success(statisticsService.getRepairSummary(communityId));
     }
 
     @Operation(summary = "获取安全隐患状态汇总")
+    @RequiresPermission("statistics:analysis:view")
     @GetMapping("/hazard-summary")
     public Result<HazardSummaryVO> getHazardSummary(@RequestParam(required = false) Long communityId) {
         return Result.success(statisticsService.getHazardSummary(communityId));
     }
 
     @Operation(summary = "获取车棚使用率统计")
+    @RequiresPermission("statistics:analysis:view")
     @GetMapping("/parking-area-usage")
     public Result<ParkingAreaUsageVO> getParkingAreaUsage(@RequestParam(required = false) Long communityId) {
         return Result.success(statisticsService.getParkingAreaUsage(communityId));

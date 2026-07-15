@@ -4,6 +4,7 @@
 > 用途：把“代码事实”与中期文档章节绑定。计划文档不构成实现证据。
 > 增量更新：2026-07-15 JWT fail-open 修复，提交待本次提交生成。
 > 增量更新：2026-07-15 权限码一致性修复随本次提交固化，哈希以 Git 历史为准。
+> 增量更新：2026-07-15 管理运维大屏与居民页面访问模型拆分；新增 V6、居民社区范围接口和路由权限，哈希以 Git 历史为准。
 
 ## 1. 源码事实矩阵
 
@@ -11,7 +12,7 @@
 | --- | --- | --- | --- | --- |
 | 项目目标 | 社区电动自行车充电安全运维，课程演示，不接真实硬件 | `README.md` 项目边界 | 基本一致 | 作为范围唯一来源 |
 | 角色 | PLATFORM_ADMIN、PROPERTY_ADMIN、MAINTAINER、INSPECTOR、RESIDENT | `DataScope.java`、V2/V3 | 一致 | 文档统一用枚举码 |
-| 认证 | JWT + `UserContext`；`POST /api/auth/login` 可匿名，其余 `/api/*` 缺失、格式错误、无效、过期或失效用户 Token 时返回统一 HTTP 401 且不进入 Controller；请求开始和结束均清理上下文 | `charge-safe-backend/src/main/java/com/chargesafe/security/JwtAuthenticationFilter.java`、`charge-safe-backend/src/test/java/com/chargesafe/security/JwtAuthenticationFilterHttpTest.java`、`SecurityConfig.java` | fail-open 已关闭；权限码不一致仍未处理 | 保持认证 401 与既有权限不足结果分离，后续单独统一权限码 |
+| 认证 | JWT + `UserContext`；`POST /api/auth/login` 可匿名，其余 `/api/*` 缺失、格式错误、无效、过期或失效用户 Token 时返回统一 HTTP 401 且不进入 Controller；请求开始和结束均清理上下文 | `charge-safe-backend/src/main/java/com/chargesafe/security/JwtAuthenticationFilter.java`、`charge-safe-backend/src/test/java/com/chargesafe/security/JwtAuthenticationFilterHttpTest.java`、`SecurityConfig.java` | fail-open 已关闭，401 与权限不足 403 语义保持分离 | 继续以 HTTP 安全测试防回归 |
 | 权限 | Controller 注解是接口安全边界，V3 `permission_code` 向角色分发同一规范码，管理端只精确匹配 `/api/auth/permissions` 返回值；历史 30 个错误引用与本地通配符矩阵已移除 | `PermissionAspect.java`、`AuthController.java`、`MenuServiceImpl.java`、`usePermission.js`、V3/V5、`PermissionCodeConsistencyTest.java` | 已修复现有码不一致；未做 RBAC 重构，未补所有端点的方法级注解 | 后续权限覆盖扩展必须独立评审角色边界，不修改 V1-V5 |
 | 社区 | CRUD、状态、经纬度 | `CommunityController.java`、V4 | 已实现 | 经纬度只作近似定位 |
 | 车棚 | CRUD、社区归属 | `ParkingAreaController.java`、`parking_area` | 已实现 | 三级大屏称“站点”前需统一术语 |
@@ -22,11 +23,12 @@
 | 通知 | 后端/管理端真实；小程序 Mock | notification 模块、miniapp mock | 跨端不一致 | 统一用户接口 |
 | 操作日志 | AOP 写入、后台查询 | `OperationLogAspect.java`、`LogController.java` | 已实现 | 增加脱敏规则说明 |
 | 统计 | 6 个聚合接口 | statistics 模块 | 可支撑二维统计 | 不足以支撑端口级三维场景 |
-| 大屏 | ECharts/Lottie 二维页，部分真实、部分静态；路由当前匿名 | `charge-safe-admin/src/views/bigscreen/Index.vue`、`charge-safe-admin/src/router/index.js` | 不是 3D/数字孪生，且与已确认的登录后访问目标冲突 | 先修权限，再按 Three.js + three-globe 拆分并真实化 |
+| 管理大屏 | `/bigscreen` 是登录后的二维管理运维页，要求 `statistics:bigscreen:view`，页面只调用同权限保护的管理聚合接口；视觉和静态内容仍沿用旧实现 | `charge-safe-admin/src/router/index.js`、`views/bigscreen/Index.vue`、`StatisticsController.java#getManagementBigscreen` | 访问模型已修复；仍不是 3D/数字孪生，仍含合成/静态展示 | 后续按 Three.js + three-globe 独立实施并真实化 |
+| 居民页面 | `/resident/dashboard` 要求 `resident:dashboard:view`；接口不接受客户端社区范围，使用 `UserContext.communityId` 从查询层限定社区，只返回安全精简 DTO | `views/resident/Dashboard.vue`、`ResidentDashboardController.java`、`ResidentDashboardServiceImpl.java`、`ResidentDashboardVO.java` | 最小真实二维页面已实现，不含预约动作或三维展示 | 后续业务闭环保持居民数据域 |
 | 数据库 | 23 张 Flyway 建表；逻辑关联，无物理外键 | V1、V3 | 设计文档过时 | 以迁移为唯一结构来源 |
-| Flyway | V1-V5，`classpath:db/migration` | `application.yml`、migration 目录 | 一致 | 禁止改已发布迁移 |
+| Flyway | V1-V6，`classpath:db/migration`；V6 只新增隐藏权限 `resident:dashboard:view` 并通过稳定角色码与权限码关联 RESIDENT | `application.yml`、`V6__add_resident_dashboard_permission.sql` | V1-V5 checksum 未变，V6 已在 Windows MySQL 成功执行 | 禁止改已发布迁移 |
 | 本地开发 | Windows MySQL；WSL 动态网关 | local profile、WSL 脚本 | README 较准确 | 保持无 Docker |
-| 测试 | 32 项：charging 15、menu 1、JWT HTTP 安全边界 12、权限跨层契约 3、权限接口 HTTP 1；2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `charge-safe-backend/src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`PermissionCodeConsistencyTest.java`、`AuthControllerPermissionsHttpTest.java` | 认证与现有权限码一致性已有回归测试，其他模块覆盖仍不足 | 继续扩展接口权限覆盖、统计、工单和巡检测试；不把现有码统一外推为 RBAC 已重构 |
+| 测试 | 47 项；新增居民服务社区隔离、居民/管理 HTTP 权限、V6 契约和前端路由静态契约，2026-07-15 在 OpenJDK 21.0.11 下完整测试和打包通过 | `ResidentDashboardServiceTest.java`、`DashboardAccessHttpTest.java`、`ResidentDashboardPermissionMigrationTest.java`、`DashboardRouteAccessContractTest.java`、既有 JWT/权限测试 | 访问边界已有后端回归；管理端无测试框架，使用静态契约、构建和浏览器冒烟补足 | 后续补正式管理端 router/store 测试基础 |
 
 ## 2. 后端接口映射
 
@@ -46,10 +48,12 @@
 | 报修派单与工单处理 | `repair-ticket:view` | `RepairController.java` | V3 ID 1520 | `views/repair/Report.vue`、`Ticket.vue` |
 | 巡检任务创建/开始/完成 | `inspection-task:view` | `InspectionController.java` | V3 ID 1530 | `views/inspection/Task.vue` |
 | 隐患整改/复查/关闭 | `hazard:view` | `InspectionController.java` | V3 ID 1540 | `views/inspection/Hazard.vue` |
+| 管理运维大屏 | `statistics:bigscreen:view` | `StatisticsController.java#getManagementBigscreen` | V3 ID 1630，PLATFORM_ADMIN/PROPERTY_ADMIN 原关联 | `/bigscreen`、`views/bigscreen/Index.vue` |
+| 居民充电可用性页 | `resident:dashboard:view` | `ResidentDashboardController.java#getDashboard` | V6 隐藏权限节点，仅映射 RESIDENT | `/resident/dashboard`、`views/resident/Dashboard.vue` |
 
-运行态实际权限数：PLATFORM_ADMIN 39、PROPERTY_ADMIN 22、MAINTAINER 5、INSPECTOR 6、RESIDENT 0。测试只读取 `/api/auth/me`、`/api/auth/permissions` 和角色对应 GET；没有调用写接口或修改角色菜单数据。生产 Controller 当前没有带 `@RequiresPermission` 的只读 GET，因此权限不足的 403 语义由 MockMvc HTTP 测试覆盖，未通过调用写接口制造运行态拒绝。
+V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTAINER 5、INSPECTOR 6、RESIDENT 1。RESIDENT 仅包含 `resident:dashboard:view`，不含 `statistics:bigscreen:view` 或后台管理权限；平台管理员因既有“枚举全部启用权限码”语义可见新权限，但 V6 的角色菜单映射只授予 RESIDENT。运行验证只调用登录、权限和 GET 接口，没有调用写接口或手工修改角色菜单数据。
 
-实际 Controller 15 个、REST 映射 102 个。下表按模块归并；精确请求 DTO/VO 以对应 Controller 方法签名为准。
+实际 Controller 16 个、REST 映射 104 个。下表按模块归并；精确请求 DTO/VO 以对应 Controller 方法签名为准。
 
 | 模块 | Controller / 路径 | 端点数 | 权限方式 | Service / Mapper | 主要表 | 管理端 | 小程序 |
 | --- | --- | ---: | --- | --- | --- | --- | --- |
@@ -66,7 +70,8 @@
 | 巡检/隐患 | `InspectionController` `/api` | 13 | 流程动作注解 | `InspectionService` | inspection_task、inspection_record、safety_hazard | 任务与隐患 | 无 |
 | 通知 | `NotificationController` `/api/notifications` | 4 | 用户上下文 | `NotificationService` | notification | 消息页 | 调用不存在的 `/api/user/*` |
 | 日志 | `LogController` `/api/logs` | 2 | 未见方法注解 | `OperationLogService` | operation_log | 日志页 | 无 |
-| 统计 | `StatisticsController` `/api/statistics` | 6 | 未见方法注解 | `StatisticsService` | 多表聚合 | 仪表盘、统计、大屏 | 无 |
+| 统计 | `StatisticsController` `/api/statistics` | 7 | 管理聚合为 `statistics:bigscreen:view`；共享 dashboard/port 为 `dashboard:view`；分析接口为 `statistics:analysis:view` | `StatisticsService` | 多表聚合 | 仪表盘、统计、管理大屏 | 无 |
+| 居民可用性 | `ResidentDashboardController` `/api/resident/dashboard` | 1 | `resident:dashboard:view` | `ResidentDashboardService` | community、parking_area、charging_device、charging_port | 居民页面 | 无 |
 | 模拟器 | `SimulatorController` `/api/simulator` | 4 | 未见方法注解 | 组合多个 Service | port/order/reservation | 模拟器页 | 无 |
 
 ### 2.1 前端声明但后端不存在或不匹配
@@ -102,7 +107,8 @@
 | `/ops/hazard` | 整改/复查/关闭 | 按钮权限 | 真实 | 主流程可用 |
 | `/ops/statistics` | 6 类统计图表 | 角色路由 | 真实聚合 | 请求失败静默；大 chunk |
 | `/ops/notification` | 消息查询/已读 | 角色路由 | 真实 | 基本可用 |
-| `/bigscreen` | 3 个二维 Tab | 当前 `requiresAuth:false`；目标为管理端登录、菜单和权限控制 | 混合真实/静态 | 不属于三级三维大屏；匿名现状列入 P1 |
+| `/bigscreen` | 3 个二维 Tab | `requiresAuth:true` + `statistics:bigscreen:view`；权限恢复后判断 | 管理聚合真实，端口矩阵与告警/电气仍混合静态 | 不属于三级三维大屏；访问模型已修复 |
+| `/resident/dashboard` | 居民寻找可用充电位置 | `requiresAuth:true` + `resident:dashboard:view`；RESIDENT 登录默认进入 | 登录社区内真实车棚/端口状态，含加载、空、错误和无社区状态 | 最小真实二维页，不是后台菜单或管理大屏 |
 
 ## 4. 小程序页面映射
 
@@ -133,7 +139,8 @@
 ### 5.1 唯一正式迁移源
 
 - 配置：`charge-safe-backend/src/main/resources/application.yml` 中 `spring.flyway.locations: classpath:db/migration`。
-- 文件：`V1__init_schema.sql`、`V2__init_data.sql`、`V3__add_menu_tables.sql`、`V4__add_community_coordinates.sql`、`V5__adjust_property_admin_menus.sql`。
+- 文件：`V1__init_schema.sql`、`V2__init_data.sql`、`V3__add_menu_tables.sql`、`V4__add_community_coordinates.sql`、`V5__adjust_property_admin_menus.sql`、`V6__add_resident_dashboard_permission.sql`。
+- V6 不新增表或字段；只创建隐藏权限节点 `resident:dashboard:view` 并以稳定角色码、权限码和 `NOT EXISTS` 建立幂等角色映射。
 - 根目录 `sql/schema.sql`、`sql/data.sql` 未被当前 Spring/脚本自动引用，不符合 Flyway 版本命名，不得与 Flyway 同时执行。
 - H2 使用独立 `db/h2/schema.sql` 和 `data.sql`，且当前缺少 H2 依赖。
 

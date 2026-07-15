@@ -22,7 +22,28 @@ const routes = [
     path: '/bigscreen',
     name: 'BigScreen',
     component: () => import('@/views/bigscreen/Index.vue'),
-    meta: { title: '可视化大屏', requiresAuth: false } // 大屏无需登录也可查看
+    meta: {
+      title: '管理运维大屏',
+      requiresAuth: true,
+      permission: 'statistics:bigscreen:view'
+    }
+  },
+  {
+    path: '/resident/dashboard',
+    name: 'ResidentDashboard',
+    component: () => import('@/views/resident/Dashboard.vue'),
+    meta: {
+      title: '社区充电首页',
+      requiresAuth: true,
+      permission: 'resident:dashboard:view',
+      roles: ['RESIDENT']
+    }
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/auth/Forbidden.vue'),
+    meta: { title: '无权访问', requiresAuth: true }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -44,9 +65,8 @@ const getDefaultPathByRole = (roleCode) => {
   if (roleCode === 'PROPERTY_ADMIN') return '/ops/dashboard'
   if (roleCode === 'MAINTAINER') return '/ops/repair-ticket'
   if (roleCode === 'INSPECTOR') return '/ops/inspection-task'
-  if (roleCode === 'RESIDENT') return '/bigscreen'
-  // 兜底：角色未知时也去大屏，不造成死循环
-  return '/bigscreen'
+  if (roleCode === 'RESIDENT') return '/resident/dashboard'
+  return '/403'
 }
 
 // 标记是否正在进行用户信息拉取，防止并发重复请求
@@ -78,7 +98,7 @@ router.beforeEach(async (to, from, next) => {
     isFetchingUserInfo = false
   }
 
-  // ---- 无需认证的页面 (/login, /bigscreen) ----
+  // ---- 无需认证的页面 (/login) ----
   if (to.meta.requiresAuth === false) {
     // 已登录用户访问 /login，重定向到其首页
     if (userStore.token && to.path === '/login') {
@@ -111,12 +131,17 @@ router.beforeEach(async (to, from, next) => {
   const requiredRoles = to.matched.flatMap(record => record.meta.roles || [])
   if (requiredRoles.length > 0 && !requiredRoles.includes(userStore.roleCode)) {
     ElMessage.error('无权访问该页面')
-    // 有来源页面就回去，否则去首页
-    if (from.name) {
-      next(false) // 取消导航，停在原页面
-    } else {
-      next(getDefaultPathByRole(userStore.roleCode))
-    }
+    next({ path: '/403', replace: true, query: { from: to.fullPath } })
+    return
+  }
+
+  // 页面权限以登录后从后端加载的 permission_code 为唯一来源
+  const requiredPermissions = to.matched
+    .map(record => record.meta.permission)
+    .filter(Boolean)
+  if (requiredPermissions.some(permission => !userStore.permissions.includes(permission))) {
+    ElMessage.error('无权访问该页面')
+    next({ path: '/403', replace: true, query: { from: to.fullPath } })
     return
   }
 

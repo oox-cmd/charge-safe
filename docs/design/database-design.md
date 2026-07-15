@@ -10,7 +10,7 @@
 - **存储引擎**：InnoDB
 - **字符集**：utf8mb4
 - **迁移工具**：Flyway
-- **当前版本**：V2（V1__init_schema.sql + V2__init_data.sql）
+- **当前版本**：V6；本文件大部分表结构文字是早期设计，真实结构以 `charge-safe-backend/src/main/resources/db/migration/` 的 V1-V6 为准
 
 ---
 
@@ -443,6 +443,10 @@ inspection_task ──1:N── safety_hazard
 | inspector01 | 123456 | INSPECTOR | 阳光花园小区 |
 | resident01 | 123456 | RESIDENT | 阳光花园小区 |
 | resident02 | 123456 | RESIDENT | 阳光花园小区 |
+
+### 4.3 V6 居民页面权限
+
+`V6__add_resident_dashboard_permission.sql` 新增隐藏权限节点 `resident:dashboard:view`，并通过稳定的 `role_code='RESIDENT'` 与 `permission_code` 将其授予居民角色。该迁移不新增表或字段，不修改 V1-V5，也不把 RESIDENT 挂到统计管理父菜单；原 `statistics:bigscreen:view` 仍只由原有管理角色映射持有。
 
 ---
 

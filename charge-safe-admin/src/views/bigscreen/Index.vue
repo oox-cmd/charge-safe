@@ -284,10 +284,7 @@ import sparkAnimationData from '@/assets/lottie/spark.json'
 
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
-import {
-  getDashboard, getPortStatus, getOrderTrend,
-  getParkingAreaUsage
-} from '@/api/statistics'
+import { getManagementBigscreen } from '@/api/statistics'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -365,6 +362,7 @@ const handleLogout = () => {
   router.push('/login')
 }
 const dashboardData = ref({})
+const managementBigscreenData = ref(null)
 const parkingAreas = ref([])
 const alerts = ref([
   { id: 1, description: 'A栋车棚 12号端口 温度过高', createdTime: '10分钟前', severity: 'URGENT' },
@@ -466,28 +464,23 @@ const initSuccessLottie = () => {
 
 
 // ========== 数据拉取 ==========
-const fetchDashboardData = async () => {
-  try {
-    const res = await getDashboard()
-    if (res.code === 200) {
-      dashboardData.value = res.data
+const applyDashboardData = (data) => {
+  if (data) {
+      dashboardData.value = data
       coreMetrics.value = [
-        { label: '端口总数', value: res.data.totalPorts || 0, color: '#409eff' },
-        { label: '空闲端口', value: res.data.idlePorts || 0, color: '#67c23a' },
-        { label: '充电中', value: res.data.chargingPorts || 0, color: '#e6a23c' },
-        { label: '故障', value: res.data.faultPorts || 0, color: '#f56c6c' },
-        { label: '今日订单', value: res.data.todayOrders || 0, color: '#409eff' },
-        { label: '今日预约', value: res.data.todayReservations || 0, color: '#67c23a' }
+        { label: '端口总数', value: data.totalPorts || 0, color: '#409eff' },
+        { label: '空闲端口', value: data.idlePorts || 0, color: '#67c23a' },
+        { label: '充电中', value: data.chargingPorts || 0, color: '#e6a23c' },
+        { label: '故障', value: data.faultPorts || 0, color: '#f56c6c' },
+        { label: '今日订单', value: data.todayOrders || 0, color: '#409eff' },
+        { label: '今日预约', value: data.todayReservations || 0, color: '#67c23a' }
       ]
-    }
-  } catch (error) {}
+  }
 }
 
-const fetchPortData = async () => {
-  try {
-    const res = await getParkingAreaUsage()
-    if (res.code === 200 && res.data?.areas) {
-      parkingAreas.value = res.data.areas.map(area => {
+const applyParkingAreaData = (data) => {
+    if (data?.areas) {
+      parkingAreas.value = data.areas.map(area => {
         const total = area.totalPorts || 10
         const ports = []
         for (let i = 1; i <= total; i++) {
@@ -502,13 +495,24 @@ const fetchPortData = async () => {
         selectedAreaId.value = parkingAreas.value[0].id
       }
     }
+}
+
+const fetchManagementData = async () => {
+  try {
+    const res = await getManagementBigscreen()
+    if (res.code === 200) {
+      managementBigscreenData.value = res.data
+      applyDashboardData(res.data?.dashboard)
+      applyParkingAreaData(res.data?.parkingAreaUsage)
+    }
   } catch (error) {}
 }
 
-const initCharts = async () => {
+const initCharts = () => {
   try {
-    const resPort = await getPortStatus()
-    if (resPort.code === 200 && resPort.data?.statusList && portStatusChartRef.value) {
+    const data = managementBigscreenData.value
+    const portStatus = data?.portStatus
+    if (portStatus?.statusList && portStatusChartRef.value) {
       if (portStatusChart) portStatusChart.dispose()
       portStatusChart = echarts.init(portStatusChartRef.value)
       portStatusChart.setOption({
@@ -517,34 +521,34 @@ const initCharts = async () => {
           type: 'pie', radius: ['45%', '70%'],
           itemStyle: { borderRadius: 5, borderColor: '#0a1a3a', borderWidth: 2 },
           label: { show: false },
-          data: resPort.data.statusList.map(item => ({ name: item.statusName, value: item.count }))
+          data: portStatus.statusList.map(item => ({ name: item.statusName, value: item.count }))
         }]
       })
     }
-    const resTrend = await getOrderTrend()
-    if (resTrend.code === 200 && resTrend.data && orderTrendChartRef.value) {
+    const orderTrend = data?.orderTrend || []
+    if (orderTrend.length && orderTrendChartRef.value) {
       if (orderTrendChart) orderTrendChart.dispose()
       orderTrendChart = echarts.init(orderTrendChartRef.value)
       orderTrendChart.setOption({
         tooltip: { trigger: 'axis' },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'category', boundaryGap: false, data: resTrend.data.dates, axisLabel: { color: '#a0aec0' } },
+        xAxis: { type: 'category', boundaryGap: false, data: orderTrend.map(item => item.date), axisLabel: { color: '#a0aec0' } },
         yAxis: { type: 'value', axisLabel: { color: '#a0aec0' } },
         series: [
-          { name: '订单数', type: 'line', smooth: true, data: resTrend.data.orderCounts, itemStyle: { color: '#409eff' } }
+          { name: '订单数', type: 'line', smooth: true, data: orderTrend.map(item => item.count), itemStyle: { color: '#409eff' } }
         ]
       })
     }
-    const resUsage = await getParkingAreaUsage()
-    if (resUsage.code === 200 && resUsage.data?.areas && parkingUsageChartRef.value) {
+    const parkingAreaUsage = data?.parkingAreaUsage
+    if (parkingAreaUsage?.areas && parkingUsageChartRef.value) {
       if (parkingUsageChart) parkingUsageChart.dispose()
       parkingUsageChart = echarts.init(parkingUsageChartRef.value)
       parkingUsageChart.setOption({
         tooltip: { trigger: 'axis' },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'category', data: resUsage.data.areas.map(a => a.name), axisLabel: { color: '#a0aec0', fontSize: 10 } },
+        xAxis: { type: 'category', data: parkingAreaUsage.areas.map(a => a.name), axisLabel: { color: '#a0aec0', fontSize: 10 } },
         yAxis: { type: 'value', max: 100, axisLabel: { color: '#a0aec0' } },
-        series: [{ type: 'bar', data: resUsage.data.areas.map(a => a.usageRate), itemStyle: { color: '#409eff' } }]
+        series: [{ type: 'bar', data: parkingAreaUsage.areas.map(a => a.usageRate), itemStyle: { color: '#409eff' } }]
       })
     }
   } catch (error) {}
@@ -599,8 +603,7 @@ onMounted(async () => {
   updateTime()
   clockTimer = setInterval(updateTime, 1000)
   
-  await fetchDashboardData()
-  await fetchPortData()
+  await fetchManagementData()
 
   initHudLottie()
   switchTab('overview')
@@ -609,8 +612,9 @@ onMounted(async () => {
   document.addEventListener('click', handleOutsideClick)
   
   refreshTimer = setInterval(() => {
-    fetchDashboardData()
-    fetchPortData()
+    fetchManagementData().then(() => {
+      if (activeTab.value === 'overview') nextTick(initCharts)
+    })
   }, 60000)
 })
 

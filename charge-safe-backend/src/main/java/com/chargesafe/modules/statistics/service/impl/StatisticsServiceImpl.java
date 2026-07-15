@@ -56,6 +56,16 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final NotificationMapper notificationMapper;
 
     @Override
+    public ManagementBigscreenVO getManagementBigscreen(Long communityId) {
+        ManagementBigscreenVO vo = new ManagementBigscreenVO();
+        vo.setDashboard(getDashboard(communityId));
+        vo.setPortStatus(getPortStatusStatistics(communityId));
+        vo.setOrderTrend(getOrderTrend(communityId).getTrends());
+        vo.setParkingAreaUsage(getParkingAreaUsage(communityId));
+        return vo;
+    }
+
+    @Override
     public DashboardVO getDashboard(Long communityId) {
         DashboardVO vo = new DashboardVO();
 

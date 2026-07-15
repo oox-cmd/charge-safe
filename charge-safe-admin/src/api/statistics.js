@@ -1,5 +1,9 @@
 import request from './request'
 
+export function getManagementBigscreen(communityId) {
+  return request.get('/api/statistics/bigscreen', { params: { communityId } })
+}
+
 export function getDashboard(communityId) {
   return request.get('/api/statistics/dashboard', { params: { communityId } })
 }

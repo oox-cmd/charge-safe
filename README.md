@@ -51,7 +51,8 @@ charge-safe/
 │               ├── V2__init_data.sql
 │               ├── V3__add_menu_tables.sql
 │               ├── V4__add_community_coordinates.sql
-│               └── V5__adjust_property_admin_menus.sql
+│               ├── V5__adjust_property_admin_menus.sql
+│               └── V6__add_resident_dashboard_permission.sql
 ├── charge-safe-admin/                # Vue3 Web 管理端
 │   └── src/
 │       ├── api/                      # API 接口封装
@@ -148,7 +149,7 @@ GRANT ALL PRIVILEGES ON charge_safe_dev.*
   TO 'charge_safe_app'@'localhost';
 ```
 
-只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V5，也不要执行根目录
+只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V6，也不要执行根目录
 `sql/schema.sql` 或 `sql/data.sql`。后端启动时会由 Flyway 自动校验已执行迁移并
 执行 pending migration；存在 pending migration 是正常升级状态，不代表迁移异常。
 
@@ -209,9 +210,7 @@ npm run build
 
 ### 6. 可视化大屏
 
-管理端启动后，当前可访问 `http://127.0.0.1:3000/bigscreen` 进入二维可视化大屏。
-源码中该路由目前仍配置为匿名访问，这是下一阶段必须修复的 P1 安全问题，不代表既定访问策略。
-已确认的目标是把大屏纳入管理端现有登录、菜单和权限体系；教师演示若需要免登录，后续单独设计受限演示模式，不得绕过认证过滤器或权限体系。
+管理端启动后，具有 `statistics:bigscreen:view` 的管理角色可访问 `http://127.0.0.1:3000/bigscreen` 进入二维管理运维大屏；该路由和专用数据接口均要求登录与权限。居民登录后默认进入 `http://127.0.0.1:3000/resident/dashboard`，页面只展示其所属社区内的真实车棚与端口可用性，不进入管理大屏。教师演示若需要免登录，后续另行设计受限演示模式，不得绕过认证过滤器或权限体系。
 
 ### 7. 小程序端
 
@@ -250,7 +249,7 @@ npx npm@10.9.8 run dev:h5
 | 物业管理员 | property01 | 123456 | 业务管理、统计、大屏 |
 | 运维人员 | maintainer01 | 123456 | 工作台、维修工单 |
 | 巡检人员 | inspector01 | 123456 | 巡检任务、安全隐患 |
-| 居民用户 | resident01 | 123456 | 小程序端使用 |
+| 居民用户 | resident01 | 123456 | 登录后进入居民充电可用性页；小程序端也使用该角色 |
 
 ## 功能模块
 
@@ -305,7 +304,8 @@ charge-safe-backend/src/main/resources/db/migration/
 ├── V2__init_data.sql           # 初始数据（角色、菜单、测试数据）
 ├── V3__add_menu_tables.sql     # RBAC 菜单权限表 + 菜单数据（+2 张表）
 ├── V4__add_community_coordinates.sql  # 社区经纬度 + 补充演示数据
-└── V5__adjust_property_admin_menus.sql # 物业管理员菜单权限补充
+├── V5__adjust_property_admin_menus.sql # 物业管理员菜单权限补充
+└── V6__add_resident_dashboard_permission.sql # 居民页面权限及角色映射
 ```
 
 ### 规则
@@ -314,11 +314,11 @@ charge-safe-backend/src/main/resources/db/migration/
 2. 不允许手动改库后只口头同步
 3. 不允许业务代码启动时自动 DROP 表
 4. 本地库、云端开发库、云端正式库的表结构由同一套迁移文件生成
-5. 不要求团队成员手动逐个执行 V1 至 V5
+5. 不要求团队成员手动逐个执行 V1 至 V6
 6. 不得同时执行 `sql/schema.sql`、`sql/data.sql` 和 Flyway
 7. 根目录 `sql/schema.sql`、`sql/data.sql` 不符合 Flyway 命名规则，也未被当前
    MySQL Profile 或启动脚本自动引用；它们仅保留作参考，默认流程不得执行
-8. 已发布的 V1 至 V5 不得移动、重命名、修改内容或版本号
+8. 已发布的 V1 至 V6 不得移动、重命名、修改内容或版本号
 9. Flyway 在后端启动时自动校验历史并执行 pending migration；pending 不等于异常
 10. 不得手工修改 `flyway_schema_history`，也不得随意执行 repair、baseline 或 clean
 
@@ -605,7 +605,7 @@ Skills 按任务触发，不要求团队成员把全局 Skills 复制进仓库�
 
 - MVP 使用原生 Three.js + `three-globe`；Vue 负责页面、状态和生命周期，Three.js 封装在独立组件、模块和 composable 中。
 - 当前不采用 Globe.GL、TresJS、MapLibre 或 Cesium，也不并行维护两套 Three.js 实现；只有真实 GIS 需求成立后才重新评估 MapLibre。
-- 大屏默认位于管理端并使用现有认证、菜单和权限体系；当前 `/bigscreen` 匿名路由属于待修复现状，不是目标设计。
+- 管理运维大屏位于 `/bigscreen`，使用现有认证与 `statistics:bigscreen:view`；居民使用独立 `/resident/dashboard` 与 `resident:dashboard:view`，两者不得混用数据边界。
 - 小区采用非测绘级低多边形示意场景，程序化生成道路、建筑、地面和站点布局；场景坐标保存在前端配置中，不伪装成经纬度。
 - 站点特写不以购买或找到完整模型为前置条件，优先程序化搭建棚体、柜体、充电位、端口和状态锚点，再组合少量免费模块化资产。
 - MVP 只使用许可证清晰的 CC0 资产；CC BY 仅作后备，必须逐项确认作者、来源、许可证和署名方式。许可证未知、仅限个人用途、禁止再分发、All Rights Reserved、盗提、带水印、CC BY-NC 和 CC BY-ND 资产不得采用。

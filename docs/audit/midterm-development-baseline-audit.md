@@ -5,6 +5,7 @@
 > 性质：中期事实基线，不是最终交付结论。
 > 状态更新：2026-07-15 已关闭 JWT 认证过滤器 fail-open 路径；修复提交待本次提交生成。其余审查结论除明确标记外不变。
 > 状态更新：2026-07-15 已统一 Controller、V3 菜单数据和管理端按钮使用的现有权限码；修复随本次提交固化，哈希以 Git 历史为准。未对 RBAC 模型或角色绑定重新设计。
+> 状态更新：2026-07-15 已将管理运维大屏与居民充电可用性页面拆分；新增 V6 居民专用权限、社区范围接口和最小真实页面。三级三维管理大屏仍未实现。
 
 ## 1. 审查范围与方法
 
@@ -20,15 +21,15 @@
 | 管理端 | Vue 3、Vite 8、Element Plus、Pinia 3、ECharts 6、Axios、Lottie | `charge-safe-admin/package.json` |
 | 小程序 | uni-app、Vue 3.4.21、Pinia 2.2.4、Vite 5；固定 npm 10.9.8 | `charge-safe-miniapp/package.json`、`package-lock.json` |
 | 数据库 | Windows 原生 MySQL 为本地开发主方案；WSL 脚本动态解析 Windows 网关 | `README.md`、`application-local.yml`、`scripts/dev-backend-wsl.sh` |
-| 迁移 | `classpath:db/migration`，真实目录含 V1 至 V5 | `application.yml`、`src/main/resources/db/migration/` |
+| 迁移 | `classpath:db/migration`，真实目录含 V1 至 V6；V6 只增加居民页面权限数据 | `application.yml`、`src/main/resources/db/migration/` |
 | 容器 | 当前仓库没有 Compose、Dockerfile 或 Docker Profile；本地开发不要求 Docker | 全仓库文件清单、`README.md` |
-| 测试 | 5 个测试类、32 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`PermissionCodeConsistencyTest.java`、`AuthControllerPermissionsHttpTest.java`、2026-07-15 验证记录 |
+| 测试 | 9 个测试类、47 个测试；2026-07-15 在 OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均通过，仍有 Mockito/Byte Buddy 动态 agent 的未来兼容性警告 | `src/test/java/`、`JwtAuthenticationFilterHttpTest.java`、`DashboardAccessHttpTest.java`、`ResidentDashboardServiceTest.java`、权限契约测试、2026-07-15 验证记录 |
 
 `application-h2.yml` 和 H2 SQL 存在，但 `pom.xml` 没有 H2 依赖，不能据此声称 H2 测试环境可运行。
 
 ## 3. 模块完成度
 
-本表以跨端闭环为单位，共 20 个审查单元：基本实现 9 个、部分实现 8 个、未实现 3 个。
+本表以跨端闭环为单位，共 21 个审查单元：基本实现 12 个、部分实现 6 个、未实现 3 个。
 
 | 审查单元 | 状态 | 事实摘要 |
 | --- | --- | --- |
@@ -47,8 +48,9 @@
 | 报修与工单 | 部分实现 | 后端流程存在；小程序提交与列表未真实接入 |
 | 通知 | 部分实现 | 后端与管理端存在；小程序调用的是 Mock 专用接口 |
 | 小程序 | 部分实现 | 17 个页面可导航，但核心认证、预约、充电、订单、报修多为 Mock/静态 |
-| 2D 大屏 | 部分实现 | ECharts/Lottie 页面存在；端口明细合成，告警/电气指标含静态值 |
-| 自动化测试 | 部分实现 | 覆盖集中在充电和菜单树，当前 WSL/JDK 21 验证未通过 |
+| 管理 2D 大屏 | 部分实现（访问边界已修复） | `/bigscreen` 需要登录和 `statistics:bigscreen:view`，专用聚合接口受同一权限保护；页面仍有合成端口和静态告警/电气指标 |
+| 居民充电可用性页 | 基本实现 | `/resident/dashboard` 需要 `resident:dashboard:view`；只读取登录用户所属社区的车棚与真实端口状态，不是管理大屏或三级三维大屏 |
+| 自动化测试 | 部分实现 | 当前 9 个测试类、47 个测试均已在 WSL/OpenJDK 21 下通过；覆盖仍集中在认证、权限、充电、菜单树和本次大屏访问拆分 |
 | 部门管理 | 未实现 | 管理端明确标记为前端演示数据，无后端模块 |
 | 设备分类 | 未实现 | 管理端明确标记为前端演示数据，无后端模块 |
 | 三级三维大屏 | 未实现 | 无 Three.js/MapLibre/Cesium 依赖、场景状态机、模型或三维接口 |
@@ -68,12 +70,12 @@
 3. `WebConfig` 使用宽泛的跨域来源模式并允许凭据，正式部署前必须收紧。
 4. `application.yml` 含可用的 JWT 默认值；本地示例可保留占位符，但运行配置应要求环境变量。
 5. 历史问题（2026-07-15 已修复）：管理端曾使用 30 个后端和 V3 均不存在的按钮码，包括 `add/edit/reset-pwd/toggle-status`、`repair:ticket:*` 与 `inspection:*` 等命名；`/api/auth/permissions` 又只从排除按钮的菜单树提取权限，本地通配符角色矩阵掩盖了问题。当前以 Controller 安全边界和 V3 `permission_code` 现有码为规范，权限接口复用 `listPermissionCodesByUserId`，管理端仅精确匹配后端返回权限；V1-V5 和角色菜单绑定均未修改。
-6. 大屏路由当前无需登录，它调用的统计接口也没有方法级权限标记；已确认目标是纳入管理端登录、菜单和权限体系，现状属于下一阶段 P1，不得通过绕过认证实现演示。
+6. 历史问题（2026-07-15 已修复）：`/bigscreen` 曾允许匿名进入，居民也曾仅凭角色码被导向管理运维大屏。当前 `/bigscreen` 与管理聚合接口均要求 `statistics:bigscreen:view`；居民改为 `/resident/dashboard` 与 `resident:dashboard:view`，社区 ID 只取服务端登录上下文。该修复没有把现有二维管理大屏改造成三级三维大屏。
 7. 小程序请求层无条件引入 Mock 拦截器，`USE_MOCK` 常量没有控制安装；真实设备还无法使用硬编码 `localhost` 访问开发机。
 
 ## 6. 大屏真实状态与数据能力
 
-当前 `views/bigscreen/Index.vue` 是 987 行单文件二维页面。真实接入包括仪表盘、状态汇总、订单趋势和车棚使用率；非真实部分包括：
+当前 `views/bigscreen/Index.vue` 仍是约 1000 行单文件二维管理页面，已改为通过受保护的管理聚合接口加载仪表盘、状态汇总、订单趋势和车棚使用率；非真实部分包括：
 
 - 按聚合数量在前端生成端口对象，`id` 只是循环序号，并非真实 `charging_port.id`；
 - 告警、待处理工单、待整改隐患为静态数组；
@@ -121,7 +123,7 @@
 
 当前未发现必须在本轮立即破坏性处理的 P0；这不代表已可最终交付。
 
-### P1（8 项：2 项已完成，6 项待处理）
+### P1（8 项：3 项已完成，5 项待处理）
 
 1. ~~后端认证过滤器 fail-open。~~ **已于 2026-07-15 修复并通过 12 项 HTTP 安全测试、28 项完整后端测试及本地运行态冒烟；提交哈希待本次提交生成。**
 2. ~~前端与后端权限码不一致。~~ **已于 2026-07-15 修复；跨层契约测试、权限接口 HTTP 测试、32 项完整后端测试、管理端构建和五角色只读运行态验证通过；修复哈希以 Git 历史为准。**
@@ -129,7 +131,7 @@
 4. 小程序 `localhost` 地址不可用于真机。
 5. 小程序核心业务链路没有真实闭环。
 6. 大屏端口、告警和电气指标混入合成/静态数据。
-7. 多个业务端点权限边界不一致，大屏当前匿名路由与已确认的登录后访问策略冲突。
+7. ~~管理大屏匿名路由、居民跳转与数据访问模型冲突。~~ **已于 2026-07-15 拆分管理与居民访问模型；V6、居民社区隔离接口、路由权限、47 项后端测试、管理端构建及五角色只读运行验证通过。管理大屏中的合成/静态内容仍归第 6 项。**
 8. JDK 17 要求与当前 JDK 21 测试环境不一致，自动化测试未形成稳定绿线。
 
 ### P2（10 项，建议本阶段完善）

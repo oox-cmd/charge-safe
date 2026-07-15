@@ -7,6 +7,11 @@ import java.util.Map;
 public interface StatisticsService {
 
     /**
+     * 获取管理运维大屏所需的只读聚合数据
+     */
+    ManagementBigscreenVO getManagementBigscreen(Long communityId);
+
+    /**
      * 获取仪表盘统计数据
      */
     DashboardVO getDashboard(Long communityId);
