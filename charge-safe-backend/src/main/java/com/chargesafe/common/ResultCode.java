@@ -37,6 +37,7 @@ public enum ResultCode {
     // 充电相关
     CHARGING_NOT_STARTED(6010, "充电未开始"),
     CHARGING_ALREADY_FINISHED(6011, "充电已结束"),
+    CHARGING_ALREADY_ACTIVE(6012, "您已有进行中的充电订单"),
 
     // 工单相关
     TICKET_STATUS_ERROR(6020, "工单状态不允许此操作"),

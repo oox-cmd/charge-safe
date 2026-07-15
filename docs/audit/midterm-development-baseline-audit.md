@@ -170,7 +170,7 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 | A | 居民与管理大屏访问模型 | 已完成，无需处理 | `/bigscreen` 与 `/api/statistics/bigscreen` 均要求 `statistics:bigscreen:view`；`/resident/dashboard`、`resident:dashboard:view`、V6 角色绑定与按登录社区查询均存在 | 否 | 只保留证据，不重复重构 | 无 | 否 |
 | B | 小程序 Mock | 已完成，无需处理 | 历史上 `src/main.js` 无条件导入并安装 Mock；当前由 `resolveMockEnabled` 限定为开发环境且 `VITE_USE_MOCK=true` 才安装，缺省和生产构建均关闭 | 否 | 保留开发 Mock，不允许真实失败回退 | 小程序请求/Mock/登录提示与测试 | 否 |
 | C | 小程序真机 API | 已完成，无需处理 | 历史上请求、上传和 Mock 注册写死 localhost，真实登录发送 `phone`；当前统一由 `VITE_API_BASE_URL` 派生，请求/上传同源，真实登录使用 `username/password` | 否 | 按 H5、开发者工具、真机和生产说明配置环境文件 | 小程序配置、请求、登录、README | 否 |
-| D | 预约与充电闭环 | 部分完成，需要补齐 | 后端已有事务、状态枚举和 `reservation_id`，但小程序预约/充电/订单为本地数组或 `setTimeout`；后端未完整约束跨社区、活动充电互斥与本人详情边界 | 是 | 先收紧后端状态机，再让居民页面使用真实 ID/API | charging 后端、测试、小程序核心页面 | 否 |
+| D | 预约与充电闭环 | 部分完成，需要补齐 | 后端状态机已收紧：社区/本人边界、用户活动互斥、原子状态转换、写入失败回滚和本人列表/详情已覆盖；小程序预约/充电/订单仍为本地数组或 `setTimeout` | 是 | 后端无需再重构；下一批让居民页面使用真实 ID/API | 小程序核心页面及居民真实端口 DTO | 否 |
 | E | 管理大屏数据真实性 | 仍存在，必须处理 | `applyParkingAreaData` 按聚合数量生成循环 ID；告警、工单、隐患、电参、能耗为静态值；状态映射不完整 | 是 | 返回真实车棚/设备/端口明细；未接入数据明确标识 | statistics VO/service/test 与现有二维页 | 否 |
 | F | 自动测试与运行验证 | 部分完成，需要补齐 | 2026-07-15 新鲜基线为后端 47/47、管理端构建、小程序构建均通过；核心越权/重复操作/API 契约仍缺测试，local Profile 待最终只读验证 | 是 | 每批红测和回归，最终执行 local/Flyway/HTTP 冒烟 | 三端测试与过程记录 | 否 |
 
@@ -226,3 +226,20 @@ ChargeSafe 处于“后端 P0 业务基础较完整、管理端可演示、小�
 - HTTP 200 只有 body `code == 200` 才成功，401 保持清理登录态，业务 403/500 直接 reject 并显示后端消息。
 
 验证：配置/响应红测先因模块缺失失败，Mock 主机无关匹配红测先因导出缺失失败；实现后 Node 测试 4 个文件通过，`VITE_API_BASE_URL=/ npm run build:mp-weixin` 通过。真机实际网络连通性仍需在目标手机和局域网条件下执行，不能由构建结果替代。
+
+### 11.5 后端预约与充电状态机收紧结果
+
+历史问题保留：后端原有 Service 虽有 `@Transactional`，但通过“先查后改”的无条件 `updateById` 迁移状态，没有检查受影响行数；同一居民的活动充电、跨社区端口、管理列表权限和居民本人订单详情边界不完整；订单结束时端口缺失仍会把订单标成完成。
+
+当前行为：
+
+- 预约、开始、直接开始、结束和取消仅允许 `RESIDENT`，并强制业务对象社区等于登录上下文社区；
+- 同一居民通过用户行 `FOR UPDATE` 串行化关键操作，且最多存在一个 `PENDING` 预约或一个 `CHARGING` 订单；
+- 端口、预约和订单使用带期望原状态的条件更新，受影响行数必须为 1，可拒绝并发重复预约、重复开始和重复结束；
+- `IDLE → RESERVED → CHARGING → IDLE` 与 `PENDING → CONVERTED` 在同一事务内完成，订单保留 `reservation_id`；取消/过期恢复端口，故障取消进入 `FAULT`；
+- 关键 reservation/order/notification insert 或状态更新失败均抛出业务异常，Spring 事务回滚，避免半完成数据；
+- 过期预约尝试开始时先持久化 `EXPIRED + IDLE` 和通知，再用专用 `ReservationExpiredException` 返回 6003；该异常明确配置为不回滚已完成的过期清理；
+- 管理预约/订单列表和管理详情使用现有 `reservation:view`/`order:view`，非平台角色按所属社区过滤；系统过期任务可无用户上下文运行，管理触发的过期/故障取消仍受社区范围约束；居民使用 `/reservations/my/page`、`/orders/my` 与 `/orders/my/{id}`，只能读取本人数据，其他角色不能借用本人端点；
+- HTTP 401 仍由 JWT filter 返回；已认证但缺少管理权限保持 HTTP 200 + body code 403 的项目既有语义。
+
+红测：21 项 charging service 测试中 5 项失败，准确复现跨社区、insert 返回 0 和端口缺失仍完成的问题。实现并补足异常/权限覆盖后，charging 定向测试为 40/40（36 项 Service、4 项 HTTP）通过；OpenJDK 21.0.11 下 `mvn clean test` 与 `mvn clean package` 均为 72/72 通过，Enforcer 通过，未出现动态 Agent 自附加警告。

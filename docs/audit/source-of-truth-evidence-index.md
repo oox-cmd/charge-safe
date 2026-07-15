@@ -274,3 +274,18 @@ V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTA
 | `tests/config/api.test.mjs`、`tests/api/response.test.mjs` | 覆盖缺失配置、URL 拼接、主机无关路径、业务错误和 401 |
 
 头像上传目标虽然已经环境化，但后端当前仍没有 `/api/user/avatar`；因此“上传地址正确配置”不等于“头像上传业务已实现”。
+
+### 9.3 预约与充电状态机证据
+
+| 证据 | 当前事实 |
+| --- | --- |
+| `ChargingPortMapper.transitionStatus` | 仅当端口仍为期望状态时原子迁移，防止同端口并发覆盖 |
+| `ChargingReservationMapper.transitionStatus` | 预约状态与取消原因条件更新，重复开始/取消不能二次生效 |
+| `ChargingOrderMapper.finishOrder` | 仅 `CHARGING` 订单可一次写入结束时间、时长、金额和 `COMPLETED` |
+| `ChargingServiceImpl` | 居民角色/本人/社区校验、用户行锁、活动预约/订单互斥、关键写入计数与事务 |
+| `ReservationExpiredException` | 开始已过期预约时保留 `EXPIRED + IDLE` 清理并返回 6003 |
+| `ChargingController` | 管理列表/详情复用 `reservation:view`、`order:view`；新增本人预约分页和本人订单详情 |
+| `ChargingServiceTest` | 36 项覆盖正常、冲突、故障/维修、非本人、跨社区、活动订单、重复/并发状态、写入失败、系统/管理社区边界与过期事务语义 |
+| `ChargingAccessHttpTest` | 4 项覆盖匿名 401、居民本人端点和管理 `order:view` 的既有 body 403 语义 |
+
+Controller 映射由 104 个增加为 106 个，charging 模块由 12 个增加为 14 个；数据库结构和 Flyway 仍为 V1–V6，无 V7。

@@ -448,6 +448,20 @@ inspection_task ──1:N── safety_hazard
 
 `V6__add_resident_dashboard_permission.sql` 新增隐藏权限节点 `resident:dashboard:view`，并通过稳定的 `role_code='RESIDENT'` 与 `permission_code` 将其授予居民角色。该迁移不新增表或字段，不修改 V1-V5，也不把 RESIDENT 挂到统计管理父菜单；原 `statistics:bigscreen:view` 仍只由原有管理角色映射持有。
 
+### 4.4 P0 预约与充电一致性（2026-07-15）
+
+本次不新增迁移，继续使用 V1 的 `charging_port`、`charging_reservation`、`charging_order` 和 `charging_order.reservation_id`。状态机由 Service 事务和 Mapper 条件更新维护：
+
+| 对象组合 | 允许操作 | 原状态 | 下一状态 | 一致性要求 |
+| --- | --- | --- | --- | --- |
+| 端口/预约 | 创建预约 | `IDLE` / 无 | `RESERVED` / `PENDING` | 登录居民社区一致；同一居民无 `PENDING`/`CHARGING` 活动流程 |
+| 预约/端口 | 取消、过期 | `PENDING` / `RESERVED` | `CANCELLED` 或 `EXPIRED` / `IDLE` | 两个条件更新和通知同事务 |
+| 预约/端口/订单 | 开始充电 | `PENDING` / `RESERVED` / 无 | `CONVERTED` / `CHARGING` / `CHARGING` | 订单写入真实 `reservation_id` |
+| 订单/端口 | 结束充电 | `CHARGING` / `CHARGING` | `COMPLETED` / `IDLE` | 结束时间、时长、金额、端口和通知同事务 |
+| 预约/端口 | 故障取消 | `PENDING` / `RESERVED` | `FAULT_CANCELLED` / `FAULT` | 故障原因和通知同事务 |
+
+表没有新增唯一约束；并发一致性通过锁定当前用户行和 `WHERE id=? AND status=?` 的条件更新实现。所有关键写入受影响行数必须为 1，否则抛错并回滚。V1–V6 文件及 checksum 均未修改。
+
 ---
 
 ## 5. 设计参考来源

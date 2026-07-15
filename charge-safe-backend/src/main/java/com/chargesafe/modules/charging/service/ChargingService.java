@@ -43,6 +43,8 @@ public interface ChargingService {
      */
     PageResult<ChargingReservation> pageReservations(Long userId, String status, PageQuery pageQuery);
 
+    PageResult<ChargingReservation> pageMyReservations(String status, PageQuery pageQuery);
+
     /**
      * 开始充电（扫码）
      */
@@ -58,8 +60,12 @@ public interface ChargingService {
      */
     PageResult<ChargingOrder> pageOrders(Long userId, String status, PageQuery pageQuery);
 
+    PageResult<ChargingOrder> pageMyOrders(String status, PageQuery pageQuery);
+
     /**
      * 根据ID查询订单
      */
     ChargingOrder getOrderById(Long orderId);
+
+    ChargingOrder getMyOrderById(Long orderId);
 }

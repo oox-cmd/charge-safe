@@ -11,6 +11,7 @@ import com.chargesafe.modules.charging.enums.ReservationStatus;
 import com.chargesafe.modules.charging.mapper.ChargingOrderMapper;
 import com.chargesafe.modules.charging.mapper.ChargingReservationMapper;
 import com.chargesafe.modules.charging.service.impl.ChargingServiceImpl;
+import com.chargesafe.modules.charging.exception.ReservationExpiredException;
 import com.chargesafe.modules.community.entity.ParkingArea;
 import com.chargesafe.modules.community.mapper.ParkingAreaMapper;
 import com.chargesafe.modules.device.entity.ChargingDevice;
@@ -21,12 +22,14 @@ import com.chargesafe.modules.device.mapper.ChargingPortMapper;
 import com.chargesafe.modules.notification.entity.Notification;
 import com.chargesafe.modules.notification.mapper.NotificationMapper;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
+import com.chargesafe.modules.user.entity.SysUser;
 import com.chargesafe.security.LoginUser;
 import com.chargesafe.security.UserContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockMakers;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -75,6 +78,10 @@ class ChargingServiceTest {
                 parkingAreaMapper,
                 notificationMapper,
                 userMapper);
+        when(portMapper.transitionStatus(anyLong(), anyString(), anyString())).thenReturn(1);
+        when(reservationMapper.transitionStatus(anyLong(), anyString(), anyString(), any())).thenReturn(1);
+        when(orderMapper.finishOrder(anyLong(), anyString(), anyString(), any(), anyInt(), any())).thenReturn(1);
+        when(notificationMapper.insert(any())).thenReturn(1);
     }
 
     @AfterEach
@@ -105,9 +112,8 @@ class ChargingServiceTest {
         // Then: 预约创建成功，端口状态变为 RESERVED
         assertThat(result).isNotNull();
         assertThat(result.getStatus()).isEqualTo(ReservationStatus.PENDING.getCode());
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.RESERVED.getCode().equals(port.getStatus())
-        ));
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.IDLE.getCode(), PortStatus.RESERVED.getCode());
     }
 
     @Test
@@ -160,6 +166,113 @@ class ChargingServiceTest {
                 .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(6002));
     }
 
+    @Test
+    void createReservation_shouldFail_whenPortFault() {
+        assertReservationRejectedForPortStatus(PortStatus.FAULT);
+    }
+
+    @Test
+    void createReservation_shouldFail_whenPortMaintenance() {
+        assertReservationRejectedForPortStatus(PortStatus.MAINTENANCE);
+    }
+
+    @Test
+    void createReservation_shouldFail_whenUserHasActiveChargingOrder() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(1L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(createParkingArea());
+        when(reservationMapper.insert(any())).thenReturn(1);
+        when(portMapper.updateById(any())).thenReturn(1);
+        when(notificationMapper.insert(any())).thenReturn(1);
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class);
+        verify(portMapper, never()).transitionStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void createReservation_shouldFail_whenPortBelongsToAnotherCommunity() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        ParkingArea otherCommunityArea = createParkingArea();
+        otherCommunityArea.setCommunityId(TEST_COMMUNITY_ID + 1);
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(otherCommunityArea);
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(reservationMapper, never()).insert(any());
+    }
+
+    @Test
+    void createReservation_shouldFail_whenReservationInsertReturnsZero() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(createParkingArea());
+        when(reservationMapper.insert(any())).thenReturn(0);
+        when(portMapper.updateById(any())).thenReturn(1);
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void createReservation_shouldFail_whenAtomicPortTransitionLosesRace() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(createParkingArea());
+        when(portMapper.transitionStatus(TEST_PORT_ID, PortStatus.IDLE.getCode(), PortStatus.RESERVED.getCode()))
+                .thenReturn(0);
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class);
+        verify(reservationMapper, never()).insert(any());
+    }
+
+    @Test
+    void createReservation_shouldFailTransaction_whenNotificationInsertReturnsZero() throws Exception {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(createParkingArea());
+        when(reservationMapper.insert(any())).thenReturn(1);
+        when(notificationMapper.insert(any())).thenReturn(0);
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class);
+        assertThat(ChargingServiceImpl.class.getMethod("createReservation", ReservationDTO.class)
+                .isAnnotationPresent(Transactional.class)).isTrue();
+    }
+
     // ==================== cancelReservation 测试 ====================
 
     @Test
@@ -177,12 +290,10 @@ class ChargingServiceTest {
         chargingService.cancelReservation(TEST_RESERVATION_ID);
 
         // Then: 预约状态变为 CANCELLED，端口恢复 IDLE
-        verify(reservationMapper).updateById(argThat(r ->
-                ReservationStatus.CANCELLED.getCode().equals(r.getStatus())
-        ));
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.IDLE.getCode().equals(port.getStatus())
-        ));
+        verify(reservationMapper).transitionStatus(TEST_RESERVATION_ID,
+                ReservationStatus.PENDING.getCode(), ReservationStatus.CANCELLED.getCode(), "用户主动取消");
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.RESERVED.getCode(), PortStatus.IDLE.getCode());
     }
 
     @Test
@@ -195,6 +306,19 @@ class ChargingServiceTest {
         // When & Then
         assertThatThrownBy(() -> chargingService.cancelReservation(TEST_RESERVATION_ID))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void cancelReservation_shouldFail_whenReservationBelongsToAnotherUser() {
+        mockUserContext(TEST_USER_ID);
+        ChargingReservation reservation = createReservation(ReservationStatus.PENDING);
+        reservation.setUserId(TEST_USER_ID + 1);
+        when(reservationMapper.selectById(TEST_RESERVATION_ID)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> chargingService.cancelReservation(TEST_RESERVATION_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(reservationMapper, never()).transitionStatus(anyLong(), anyString(), anyString(), any());
     }
 
     // ==================== expireReservation 测试 ====================
@@ -213,12 +337,10 @@ class ChargingServiceTest {
         chargingService.expireReservation(TEST_RESERVATION_ID);
 
         // Then: 预约状态变为 EXPIRED，端口恢复 IDLE
-        verify(reservationMapper).updateById(argThat(r ->
-                ReservationStatus.EXPIRED.getCode().equals(r.getStatus())
-        ));
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.IDLE.getCode().equals(port.getStatus())
-        ));
+        verify(reservationMapper).transitionStatus(TEST_RESERVATION_ID,
+                ReservationStatus.PENDING.getCode(), ReservationStatus.EXPIRED.getCode(), "预约超时");
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.RESERVED.getCode(), PortStatus.IDLE.getCode());
     }
 
     @Test
@@ -231,8 +353,26 @@ class ChargingServiceTest {
         chargingService.expireReservation(TEST_RESERVATION_ID);
 
         // Then: 不更新预约和端口
-        verify(reservationMapper, never()).updateById(any());
-        verify(portMapper, never()).updateById(any());
+        verify(reservationMapper, never()).transitionStatus(anyLong(), anyString(), anyString(), any());
+        verify(portMapper, never()).transitionStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void expireReservation_shouldFail_whenOperatorScopesAnotherCommunity() {
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUserId(TEST_USER_ID);
+        loginUser.setUsername("property");
+        loginUser.setRoleCode("PROPERTY_ADMIN");
+        loginUser.setCommunityId(TEST_COMMUNITY_ID);
+        UserContext.setUser(loginUser);
+        ChargingReservation reservation = createReservation(ReservationStatus.PENDING);
+        reservation.setCommunityId(TEST_COMMUNITY_ID + 1);
+        when(reservationMapper.selectById(TEST_RESERVATION_ID)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> chargingService.expireReservation(TEST_RESERVATION_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(reservationMapper, never()).transitionStatus(anyLong(), anyString(), anyString(), any());
     }
 
     // ==================== faultCancelReservation 测试 ====================
@@ -251,12 +391,10 @@ class ChargingServiceTest {
         chargingService.faultCancelReservation(TEST_RESERVATION_ID, "充电器故障");
 
         // Then: 预约状态变为 FAULT_CANCELLED，端口变为 FAULT
-        verify(reservationMapper).updateById(argThat(r ->
-                ReservationStatus.FAULT_CANCELLED.getCode().equals(r.getStatus())
-        ));
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.FAULT.getCode().equals(port.getStatus())
-        ));
+        verify(reservationMapper).transitionStatus(TEST_RESERVATION_ID,
+                ReservationStatus.PENDING.getCode(), ReservationStatus.FAULT_CANCELLED.getCode(), "充电器故障");
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.RESERVED.getCode(), PortStatus.FAULT.getCode());
     }
 
     // ==================== startCharging 测试 ====================
@@ -279,12 +417,10 @@ class ChargingServiceTest {
         // Then: 预约变为 CONVERTED，端口变为 CHARGING，订单创建
         assertThat(order).isNotNull();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CHARGING.getCode());
-        verify(reservationMapper).updateById(argThat(r ->
-                ReservationStatus.CONVERTED.getCode().equals(r.getStatus())
-        ));
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.CHARGING.getCode().equals(port.getStatus())
-        ));
+        verify(reservationMapper).transitionStatus(TEST_RESERVATION_ID,
+                ReservationStatus.PENDING.getCode(), ReservationStatus.CONVERTED.getCode(), null);
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.RESERVED.getCode(), PortStatus.CHARGING.getCode());
     }
 
     @Test
@@ -300,6 +436,54 @@ class ChargingServiceTest {
         assertThatThrownBy(() -> chargingService.startCharging(TEST_RESERVATION_ID))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(6003));
+    }
+
+    @Test
+    void startCharging_expiredTransitionCommitsBeforeReturningBusinessError() throws Exception {
+        Transactional transactional = ChargingServiceImpl.class
+                .getMethod("startCharging", Long.class)
+                .getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.noRollbackFor()).contains(ReservationExpiredException.class);
+    }
+
+    @Test
+    void startCharging_shouldFail_whenReservationBelongsToAnotherUser() {
+        mockUserContext(TEST_USER_ID);
+        ChargingReservation reservation = createReservation(ReservationStatus.PENDING);
+        reservation.setUserId(TEST_USER_ID + 1);
+        when(reservationMapper.selectById(TEST_RESERVATION_ID)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> chargingService.startCharging(TEST_RESERVATION_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void startCharging_shouldFail_whenReservationAlreadyConverted() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectById(TEST_RESERVATION_ID))
+                .thenReturn(createReservation(ReservationStatus.CONVERTED));
+
+        assertThatThrownBy(() -> chargingService.startCharging(TEST_RESERVATION_ID))
+                .isInstanceOf(BusinessException.class);
+        verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void startCharging_shouldFail_whenOrderInsertReturnsZero() {
+        mockUserContext(TEST_USER_ID);
+        ChargingReservation reservation = createReservation(ReservationStatus.PENDING);
+        when(reservationMapper.selectById(TEST_RESERVATION_ID)).thenReturn(reservation);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.RESERVED));
+        when(reservationMapper.updateById(any())).thenReturn(1);
+        when(portMapper.updateById(any())).thenReturn(1);
+        when(orderMapper.insert(any())).thenReturn(0);
+
+        assertThatThrownBy(() -> chargingService.startCharging(TEST_RESERVATION_ID))
+                .isInstanceOf(BusinessException.class);
     }
 
     // ==================== startChargingDirectly 测试 ====================
@@ -320,9 +504,8 @@ class ChargingServiceTest {
         // Then: 端口变为 CHARGING，订单创建
         assertThat(order).isNotNull();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CHARGING.getCode());
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.CHARGING.getCode().equals(port.getStatus())
-        ));
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.IDLE.getCode(), PortStatus.CHARGING.getCode());
     }
 
     @Test
@@ -335,6 +518,33 @@ class ChargingServiceTest {
         assertThatThrownBy(() -> chargingService.startChargingDirectly(TEST_PORT_ID))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(6002));
+    }
+
+    @Test
+    void startChargingDirectly_shouldFail_whenPortBelongsToAnotherCommunity() {
+        mockUserContext(TEST_USER_ID);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.IDLE));
+        when(deviceMapper.selectById(TEST_DEVICE_ID)).thenReturn(createDevice());
+        ParkingArea otherCommunityArea = createParkingArea();
+        otherCommunityArea.setCommunityId(TEST_COMMUNITY_ID + 1);
+        when(parkingAreaMapper.selectById(TEST_PARKING_AREA_ID)).thenReturn(otherCommunityArea);
+
+        assertThatThrownBy(() -> chargingService.startChargingDirectly(TEST_PORT_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void startChargingDirectly_shouldFail_whenUserAlreadyCharging() {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> chargingService.startChargingDirectly(TEST_PORT_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(6012));
+        verify(portMapper, never()).transitionStatus(anyLong(), anyString(), anyString());
     }
 
     // ==================== finishCharging 测试 ====================
@@ -356,9 +566,8 @@ class ChargingServiceTest {
 
         // Then: 订单变为 COMPLETED，端口恢复 IDLE
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED.getCode());
-        verify(portMapper).updateById(argThat(port ->
-                PortStatus.IDLE.getCode().equals(port.getStatus())
-        ));
+        verify(portMapper).transitionStatus(TEST_PORT_ID,
+                PortStatus.CHARGING.getCode(), PortStatus.IDLE.getCode());
     }
 
     @Test
@@ -374,6 +583,90 @@ class ChargingServiceTest {
                 .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(6011));
     }
 
+    @Test
+    void finishCharging_shouldFail_whenOrderBelongsToAnotherUser() {
+        mockUserContext(TEST_USER_ID);
+        ChargingOrder order = createOrder(OrderStatus.CHARGING);
+        order.setUserId(TEST_USER_ID + 1);
+        when(orderMapper.selectById(TEST_ORDER_ID)).thenReturn(order);
+
+        assertThatThrownBy(() -> chargingService.finishCharging(TEST_ORDER_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(orderMapper, never()).finishOrder(anyLong(), anyString(), anyString(), any(), anyInt(), any());
+    }
+
+    @Test
+    void finishCharging_shouldFail_whenChargingPortIsMissing() {
+        mockUserContext(TEST_USER_ID);
+        ChargingOrder order = createOrder(OrderStatus.CHARGING);
+        when(orderMapper.selectById(TEST_ORDER_ID)).thenReturn(order);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(null);
+
+        assertThatThrownBy(() -> chargingService.finishCharging(TEST_ORDER_ID))
+                .isInstanceOf(BusinessException.class);
+        verify(orderMapper, never()).finishOrder(anyLong(), anyString(), anyString(), any(), anyInt(), any());
+    }
+
+    @Test
+    void finishCharging_shouldFail_whenAtomicOrderTransitionLosesRace() {
+        mockUserContext(TEST_USER_ID);
+        ChargingOrder order = createOrder(OrderStatus.CHARGING);
+        when(orderMapper.selectById(TEST_ORDER_ID)).thenReturn(order);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(PortStatus.CHARGING));
+        when(orderMapper.finishOrder(anyLong(), anyString(), anyString(), any(), anyInt(), any()))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> chargingService.finishCharging(TEST_ORDER_ID))
+                .isInstanceOf(BusinessException.class);
+        verify(portMapper, never()).transitionStatus(TEST_PORT_ID,
+                PortStatus.CHARGING.getCode(), PortStatus.IDLE.getCode());
+    }
+
+    @Test
+    void getMyOrderById_shouldFail_whenOrderBelongsToAnotherUser() {
+        mockUserContext(TEST_USER_ID);
+        ChargingOrder order = createOrder(OrderStatus.COMPLETED);
+        order.setUserId(TEST_USER_ID + 1);
+        when(orderMapper.selectById(TEST_ORDER_ID)).thenReturn(order);
+
+        assertThatThrownBy(() -> chargingService.getMyOrderById(TEST_ORDER_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+    }
+
+    @Test
+    void getOrderById_shouldFail_whenPropertyAdminReadsAnotherCommunity() {
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUserId(TEST_USER_ID);
+        loginUser.setUsername("property");
+        loginUser.setRoleCode("PROPERTY_ADMIN");
+        loginUser.setCommunityId(TEST_COMMUNITY_ID);
+        UserContext.setUser(loginUser);
+        ChargingOrder order = createOrder(OrderStatus.COMPLETED);
+        order.setCommunityId(TEST_COMMUNITY_ID + 1);
+        when(orderMapper.selectById(TEST_ORDER_ID)).thenReturn(order);
+
+        assertThatThrownBy(() -> chargingService.getOrderById(TEST_ORDER_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+    }
+
+    @Test
+    void pageMyOrders_shouldFail_forNonResidentRole() {
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUserId(TEST_USER_ID);
+        loginUser.setUsername("property");
+        loginUser.setRoleCode("PROPERTY_ADMIN");
+        loginUser.setCommunityId(TEST_COMMUNITY_ID);
+        UserContext.setUser(loginUser);
+
+        assertThatThrownBy(() -> chargingService.pageMyOrders(null, new PageQuery()))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(403));
+        verify(orderMapper, never()).selectPage(any(), any());
+    }
+
     // ==================== 辅助方法 ====================
 
     private void mockUserContext(Long userId) {
@@ -381,7 +674,27 @@ class ChargingServiceTest {
         loginUser.setUserId(userId);
         loginUser.setUsername("testuser");
         loginUser.setRoleCode("RESIDENT");
+        loginUser.setCommunityId(TEST_COMMUNITY_ID);
         UserContext.setUser(loginUser);
+        SysUser user = new SysUser();
+        user.setId(userId);
+        user.setCommunityId(TEST_COMMUNITY_ID);
+        when(userMapper.selectOne(any())).thenReturn(user);
+    }
+
+    private void assertReservationRejectedForPortStatus(PortStatus status) {
+        mockUserContext(TEST_USER_ID);
+        when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(portMapper.selectById(TEST_PORT_ID)).thenReturn(createPort(status));
+
+        ReservationDTO dto = new ReservationDTO();
+        dto.setPortId(TEST_PORT_ID);
+
+        assertThatThrownBy(() -> chargingService.createReservation(dto))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getCode()).isEqualTo(6002));
+        verify(reservationMapper, never()).insert(any());
     }
 
     private ChargingPort createPort(PortStatus status) {

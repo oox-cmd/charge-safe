@@ -11,6 +11,7 @@ import com.chargesafe.modules.charging.entity.ChargingOrder;
 import com.chargesafe.modules.charging.entity.ChargingReservation;
 import com.chargesafe.modules.charging.enums.OrderStatus;
 import com.chargesafe.modules.charging.enums.ReservationStatus;
+import com.chargesafe.modules.charging.exception.ReservationExpiredException;
 import com.chargesafe.modules.charging.mapper.ChargingOrderMapper;
 import com.chargesafe.modules.charging.mapper.ChargingReservationMapper;
 import com.chargesafe.modules.charging.service.ChargingService;
@@ -25,6 +26,7 @@ import com.chargesafe.modules.notification.entity.Notification;
 import com.chargesafe.modules.notification.mapper.NotificationMapper;
 import com.chargesafe.modules.user.entity.SysUser;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
+import com.chargesafe.security.DataScope;
 import com.chargesafe.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -57,12 +59,9 @@ public class ChargingServiceImpl implements ChargingService {
     @Override
     @Transactional
     public ChargingReservation createReservation(ReservationDTO dto) {
-        Long userId = UserContext.getUserId();
-        if (userId == null) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED);
-        }
+        Long userId = requireResidentUser();
+        lockCurrentUser(userId);
 
-        // 检查用户是否已有有效预约
         Long activeCount = reservationMapper.selectCount(
                 new LambdaQueryWrapper<ChargingReservation>()
                         .eq(ChargingReservation::getUserId, userId)
@@ -71,6 +70,8 @@ public class ChargingServiceImpl implements ChargingService {
         if (activeCount > 0) {
             throw new BusinessException(ResultCode.RESERVATION_ALREADY_EXIST);
         }
+
+        ensureNoActiveChargingOrder(userId);
 
         // 检查端口是否已有有效预约（同一端口不能同时被预约）
         Long portActiveCount = reservationMapper.selectCount(
@@ -91,15 +92,10 @@ public class ChargingServiceImpl implements ChargingService {
             throw new BusinessException(ResultCode.PORT_NOT_IDLE);
         }
 
-        // 获取端口所属社区ID
-        ChargingDevice device = deviceMapper.selectById(port.getDeviceId());
-        Long communityId = null;
-        if (device != null) {
-            ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
-            if (parkingArea != null) {
-                communityId = parkingArea.getCommunityId();
-            }
-        }
+        Long communityId = resolvePortCommunity(port);
+        ensureCurrentCommunity(communityId);
+
+        transitionPort(dto.getPortId(), PortStatus.IDLE, PortStatus.RESERVED);
 
         // 创建预约
         ChargingReservation reservation = new ChargingReservation();
@@ -109,11 +105,7 @@ public class ChargingServiceImpl implements ChargingService {
         reservation.setReserveTime(LocalDateTime.now());
         reservation.setExpireTime(LocalDateTime.now().plusMinutes(30)); // 30分钟有效期
         reservation.setStatus(ReservationStatus.PENDING.getCode());
-        reservationMapper.insert(reservation);
-
-        // 更新端口状态为已预约
-        port.setStatus(PortStatus.RESERVED.getCode());
-        portMapper.updateById(port);
+        requireWrite(reservationMapper.insert(reservation), "创建预约失败");
 
         // 发送预约成功通知
         createNotification(userId, "预约成功通知",
@@ -126,7 +118,8 @@ public class ChargingServiceImpl implements ChargingService {
     @Override
     @Transactional
     public void cancelReservation(Long reservationId) {
-        Long userId = UserContext.getUserId();
+        Long userId = requireResidentUser();
+        lockCurrentUser(userId);
         ChargingReservation reservation = reservationMapper.selectById(reservationId);
 
         if (reservation == null) {
@@ -138,18 +131,11 @@ public class ChargingServiceImpl implements ChargingService {
         if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
             throw new BusinessException("预约状态不允许取消");
         }
+        ensureCurrentCommunity(reservation.getCommunityId());
 
-        // 更新预约状态
-        reservation.setStatus(ReservationStatus.CANCELLED.getCode());
-        reservation.setCancelReason("用户主动取消");
-        reservationMapper.updateById(reservation);
-
-        // 恢复端口状态为空闲
-        ChargingPort port = portMapper.selectById(reservation.getPortId());
-        if (port != null && PortStatus.RESERVED.getCode().equals(port.getStatus())) {
-            port.setStatus(PortStatus.IDLE.getCode());
-            portMapper.updateById(port);
-        }
+        transitionReservation(reservationId, ReservationStatus.PENDING,
+                ReservationStatus.CANCELLED, "用户主动取消");
+        transitionPort(reservation.getPortId(), PortStatus.RESERVED, PortStatus.IDLE);
 
         // 发送取消通知
         createNotification(userId, "预约取消通知",
@@ -167,17 +153,11 @@ public class ChargingServiceImpl implements ChargingService {
         if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
             return; // 已处理过，无需重复操作
         }
+        ensureSystemOrScopedCommunity(reservation.getCommunityId());
 
-        // 更新预约状态为过期
-        reservation.setStatus(ReservationStatus.EXPIRED.getCode());
-        reservationMapper.updateById(reservation);
-
-        // 恢复端口状态为空闲
-        ChargingPort port = portMapper.selectById(reservation.getPortId());
-        if (port != null && PortStatus.RESERVED.getCode().equals(port.getStatus())) {
-            port.setStatus(PortStatus.IDLE.getCode());
-            portMapper.updateById(port);
-        }
+        transitionReservation(reservationId, ReservationStatus.PENDING,
+                ReservationStatus.EXPIRED, "预约超时");
+        transitionPort(reservation.getPortId(), PortStatus.RESERVED, PortStatus.IDLE);
 
         // 发送过期通知
         createNotification(reservation.getUserId(), "预约过期通知",
@@ -195,18 +175,12 @@ public class ChargingServiceImpl implements ChargingService {
         if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
             return; // 已处理过
         }
+        ensureSystemOrScopedCommunity(reservation.getCommunityId());
 
-        // 更新预约状态为设备故障取消
-        reservation.setStatus(ReservationStatus.FAULT_CANCELLED.getCode());
-        reservation.setCancelReason(reason != null ? reason : "设备故障自动取消");
-        reservationMapper.updateById(reservation);
-
-        // 恢复端口状态为故障
-        ChargingPort port = portMapper.selectById(reservation.getPortId());
-        if (port != null) {
-            port.setStatus(PortStatus.FAULT.getCode());
-            portMapper.updateById(port);
-        }
+        transitionReservation(reservationId, ReservationStatus.PENDING,
+                ReservationStatus.FAULT_CANCELLED,
+                reason != null ? reason : "设备故障自动取消");
+        transitionPort(reservation.getPortId(), PortStatus.RESERVED, PortStatus.FAULT);
 
         // 发送故障取消通知
         createNotification(reservation.getUserId(), "预约故障取消通知",
@@ -216,10 +190,7 @@ public class ChargingServiceImpl implements ChargingService {
 
     @Override
     public ChargingReservation getMyActiveReservation() {
-        Long userId = UserContext.getUserId();
-        if (userId == null) {
-            return null;
-        }
+        Long userId = requireResidentUser();
         return reservationMapper.selectOne(
                 new LambdaQueryWrapper<ChargingReservation>()
                         .eq(ChargingReservation::getUserId, userId)
@@ -231,9 +202,12 @@ public class ChargingServiceImpl implements ChargingService {
 
     @Override
     public PageResult<ChargingReservation> pageReservations(Long userId, String status, PageQuery pageQuery) {
+        Long effectiveUserId = DataScope.isResident() ? requireResidentUser() : userId;
+        Long communityId = scopedCommunityId();
         Page<ChargingReservation> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         LambdaQueryWrapper<ChargingReservation> wrapper = new LambdaQueryWrapper<ChargingReservation>()
-                .eq(userId != null, ChargingReservation::getUserId, userId)
+                .eq(effectiveUserId != null, ChargingReservation::getUserId, effectiveUserId)
+                .eq(communityId != null, ChargingReservation::getCommunityId, communityId)
                 .eq(StringUtils.hasText(status), ChargingReservation::getStatus, status)
                 .orderByDesc(ChargingReservation::getCreatedTime);
 
@@ -253,9 +227,15 @@ public class ChargingServiceImpl implements ChargingService {
     }
 
     @Override
-    @Transactional
+    public PageResult<ChargingReservation> pageMyReservations(String status, PageQuery pageQuery) {
+        return pageReservations(requireResidentUser(), status, pageQuery);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = ReservationExpiredException.class)
     public ChargingOrder startCharging(Long reservationId) {
-        Long userId = UserContext.getUserId();
+        Long userId = requireResidentUser();
+        lockCurrentUser(userId);
         ChargingReservation reservation = reservationMapper.selectById(reservationId);
 
         if (reservation == null) {
@@ -267,12 +247,16 @@ public class ChargingServiceImpl implements ChargingService {
         if (!ReservationStatus.PENDING.getCode().equals(reservation.getStatus())) {
             throw new BusinessException("预约状态不允许开始充电");
         }
+        ensureCurrentCommunity(reservation.getCommunityId());
+        ensureNoActiveChargingOrder(userId);
 
-        // 检查预约是否过期
         if (LocalDateTime.now().isAfter(reservation.getExpireTime())) {
-            reservation.setStatus(ReservationStatus.EXPIRED.getCode());
-            reservationMapper.updateById(reservation);
-            throw new BusinessException(ResultCode.RESERVATION_EXPIRED);
+            transitionReservation(reservationId, ReservationStatus.PENDING,
+                    ReservationStatus.EXPIRED, "预约超时");
+            transitionPort(reservation.getPortId(), PortStatus.RESERVED, PortStatus.IDLE);
+            createNotification(userId, "预约过期通知", "您的预约已超时自动取消。",
+                    "RESERVATION", "RESERVATION", reservationId);
+            throw new ReservationExpiredException();
         }
 
         // 检查端口状态
@@ -281,13 +265,9 @@ public class ChargingServiceImpl implements ChargingService {
             throw new BusinessException(ResultCode.PORT_NOT_IDLE);
         }
 
-        // 更新预约状态为已转订单
-        reservation.setStatus(ReservationStatus.CONVERTED.getCode());
-        reservationMapper.updateById(reservation);
-
-        // 更新端口状态为充电中
-        port.setStatus(PortStatus.CHARGING.getCode());
-        portMapper.updateById(port);
+        transitionReservation(reservationId, ReservationStatus.PENDING,
+                ReservationStatus.CONVERTED, null);
+        transitionPort(reservation.getPortId(), PortStatus.RESERVED, PortStatus.CHARGING);
 
         // 创建充电订单
         ChargingOrder order = new ChargingOrder();
@@ -299,7 +279,7 @@ public class ChargingServiceImpl implements ChargingService {
         order.setStartTime(LocalDateTime.now());
         order.setAmount(BigDecimal.ZERO);
         order.setStatus(OrderStatus.CHARGING.getCode());
-        orderMapper.insert(order);
+        requireWrite(orderMapper.insert(order), "创建充电订单失败");
 
         return order;
     }
@@ -307,10 +287,17 @@ public class ChargingServiceImpl implements ChargingService {
     @Override
     @Transactional
     public ChargingOrder startChargingDirectly(Long portId) {
-        Long userId = UserContext.getUserId();
-        if (userId == null) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        Long userId = requireResidentUser();
+        lockCurrentUser(userId);
+
+        Long reservationCount = reservationMapper.selectCount(
+                new LambdaQueryWrapper<ChargingReservation>()
+                        .eq(ChargingReservation::getUserId, userId)
+                        .eq(ChargingReservation::getStatus, ReservationStatus.PENDING.getCode()));
+        if (reservationCount > 0) {
+            throw new BusinessException(ResultCode.RESERVATION_ALREADY_EXIST);
         }
+        ensureNoActiveChargingOrder(userId);
 
         // 检查端口状态
         ChargingPort port = portMapper.selectById(portId);
@@ -321,19 +308,10 @@ public class ChargingServiceImpl implements ChargingService {
             throw new BusinessException(ResultCode.PORT_NOT_IDLE.getCode(), "端口当前不可用，请先预约");
         }
 
-        // 获取社区ID
-        ChargingDevice device = deviceMapper.selectById(port.getDeviceId());
-        Long communityId = null;
-        if (device != null) {
-            ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
-            if (parkingArea != null) {
-                communityId = parkingArea.getCommunityId();
-            }
-        }
+        Long communityId = resolvePortCommunity(port);
+        ensureCurrentCommunity(communityId);
 
-        // 更新端口状态为充电中
-        port.setStatus(PortStatus.CHARGING.getCode());
-        portMapper.updateById(port);
+        transitionPort(portId, PortStatus.IDLE, PortStatus.CHARGING);
 
         // 创建充电订单（无预约关联）
         ChargingOrder order = new ChargingOrder();
@@ -344,7 +322,7 @@ public class ChargingServiceImpl implements ChargingService {
         order.setStartTime(LocalDateTime.now());
         order.setAmount(BigDecimal.ZERO);
         order.setStatus(OrderStatus.CHARGING.getCode());
-        orderMapper.insert(order);
+        requireWrite(orderMapper.insert(order), "创建充电订单失败");
 
         return order;
     }
@@ -352,7 +330,8 @@ public class ChargingServiceImpl implements ChargingService {
     @Override
     @Transactional
     public ChargingOrder finishCharging(Long orderId) {
-        Long userId = UserContext.getUserId();
+        Long userId = requireResidentUser();
+        lockCurrentUser(userId);
         ChargingOrder order = orderMapper.selectById(orderId);
 
         if (order == null) {
@@ -363,6 +342,12 @@ public class ChargingServiceImpl implements ChargingService {
         }
         if (!OrderStatus.CHARGING.getCode().equals(order.getStatus())) {
             throw new BusinessException(ResultCode.CHARGING_ALREADY_FINISHED);
+        }
+        ensureCurrentCommunity(order.getCommunityId());
+
+        ChargingPort port = portMapper.selectById(order.getPortId());
+        if (port == null || !PortStatus.CHARGING.getCode().equals(port.getStatus())) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(), "订单与端口状态不一致");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -377,19 +362,13 @@ public class ChargingServiceImpl implements ChargingService {
             amount = new BigDecimal("0.50"); // 最低消费
         }
 
-        // 更新订单
         order.setEndTime(now);
         order.setDurationMinutes((int) minutes);
         order.setAmount(amount);
         order.setStatus(OrderStatus.COMPLETED.getCode());
-        orderMapper.updateById(order);
-
-        // 恢复端口状态为空闲
-        ChargingPort port = portMapper.selectById(order.getPortId());
-        if (port != null) {
-            port.setStatus(PortStatus.IDLE.getCode());
-            portMapper.updateById(port);
-        }
+        requireWrite(orderMapper.finishOrder(orderId, OrderStatus.CHARGING.getCode(),
+                OrderStatus.COMPLETED.getCode(), now, (int) minutes, amount), "结束充电失败");
+        transitionPort(order.getPortId(), PortStatus.CHARGING, PortStatus.IDLE);
 
         // 发送充电完成通知
         createNotification(userId, "充电完成通知",
@@ -401,9 +380,12 @@ public class ChargingServiceImpl implements ChargingService {
 
     @Override
     public PageResult<ChargingOrder> pageOrders(Long userId, String status, PageQuery pageQuery) {
+        Long effectiveUserId = DataScope.isResident() ? requireResidentUser() : userId;
+        Long communityId = scopedCommunityId();
         Page<ChargingOrder> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         LambdaQueryWrapper<ChargingOrder> wrapper = new LambdaQueryWrapper<ChargingOrder>()
-                .eq(userId != null, ChargingOrder::getUserId, userId)
+                .eq(effectiveUserId != null, ChargingOrder::getUserId, effectiveUserId)
+                .eq(communityId != null, ChargingOrder::getCommunityId, communityId)
                 .eq(StringUtils.hasText(status), ChargingOrder::getStatus, status)
                 .orderByDesc(ChargingOrder::getCreatedTime);
 
@@ -427,10 +409,35 @@ public class ChargingServiceImpl implements ChargingService {
     }
 
     @Override
+    public PageResult<ChargingOrder> pageMyOrders(String status, PageQuery pageQuery) {
+        return pageOrders(requireResidentUser(), status, pageQuery);
+    }
+
+    @Override
     public ChargingOrder getOrderById(Long orderId) {
         ChargingOrder order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        if (DataScope.isResident()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        if (!DataScope.isPlatformAdmin() && !Objects.equals(order.getCommunityId(), scopedCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        return order;
+    }
+
+    @Override
+    public ChargingOrder getMyOrderById(Long orderId) {
+        Long userId = requireResidentUser();
+        ChargingOrder order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        if (!Objects.equals(order.getUserId(), userId)
+                || !Objects.equals(order.getCommunityId(), UserContext.getCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
         }
         return order;
     }
@@ -451,6 +458,90 @@ public class ChargingServiceImpl implements ChargingService {
         notification.setBusinessType(businessType);
         notification.setBusinessId(businessId);
         notification.setIsRead(0);
-        notificationMapper.insert(notification);
+        requireWrite(notificationMapper.insert(notification), "创建通知失败");
+    }
+
+    private Long requireResidentUser() {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        if (!DataScope.isResident()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        return userId;
+    }
+
+    private void lockCurrentUser(Long userId) {
+        SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getId, userId)
+                .last("FOR UPDATE"));
+        if (user == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+    }
+
+    private void ensureNoActiveChargingOrder(Long userId) {
+        Long activeOrders = orderMapper.selectCount(new LambdaQueryWrapper<ChargingOrder>()
+                .eq(ChargingOrder::getUserId, userId)
+                .eq(ChargingOrder::getStatus, OrderStatus.CHARGING.getCode()));
+        if (activeOrders > 0) {
+            throw new BusinessException(ResultCode.CHARGING_ALREADY_ACTIVE);
+        }
+    }
+
+    private Long resolvePortCommunity(ChargingPort port) {
+        ChargingDevice device = deviceMapper.selectById(port.getDeviceId());
+        if (device == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
+        if (parkingArea == null || parkingArea.getCommunityId() == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        return parkingArea.getCommunityId();
+    }
+
+    private void ensureCurrentCommunity(Long communityId) {
+        if (communityId == null || !Objects.equals(communityId, UserContext.getCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+    }
+
+    private void ensureSystemOrScopedCommunity(Long communityId) {
+        if (UserContext.getUserId() == null || DataScope.isPlatformAdmin()) {
+            return;
+        }
+        if (!Objects.equals(communityId, UserContext.getCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+    }
+
+    private Long scopedCommunityId() {
+        if (DataScope.isPlatformAdmin()) {
+            return null;
+        }
+        Long communityId = UserContext.getCommunityId();
+        if (communityId == null) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        return communityId;
+    }
+
+    private void transitionPort(Long portId, PortStatus expected, PortStatus target) {
+        requireWrite(portMapper.transitionStatus(portId, expected.getCode(), target.getCode()),
+                "端口状态已变化，请刷新后重试");
+    }
+
+    private void transitionReservation(Long reservationId, ReservationStatus expected,
+                                       ReservationStatus target, String cancelReason) {
+        requireWrite(reservationMapper.transitionStatus(reservationId, expected.getCode(),
+                target.getCode(), cancelReason), "预约状态已变化，请刷新后重试");
+    }
+
+    private void requireWrite(int affectedRows, String message) {
+        if (affectedRows != 1) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(), message);
+        }
     }
 }

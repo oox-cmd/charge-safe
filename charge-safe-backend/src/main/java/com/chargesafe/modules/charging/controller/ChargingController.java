@@ -8,7 +8,7 @@ import com.chargesafe.modules.charging.dto.ReservationDTO;
 import com.chargesafe.modules.charging.entity.ChargingOrder;
 import com.chargesafe.modules.charging.entity.ChargingReservation;
 import com.chargesafe.modules.charging.service.ChargingService;
-import com.chargesafe.security.UserContext;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -42,6 +42,7 @@ public class ChargingController {
 
     @Operation(summary = "过期取消预约")
     @PostMapping("/reservations/{id}/expire")
+    @RequiresPermission("reservation:view")
     public Result<Void> expireReservation(@PathVariable Long id) {
         chargingService.expireReservation(id);
         return Result.success();
@@ -49,6 +50,7 @@ public class ChargingController {
 
     @Operation(summary = "设备故障取消预约")
     @PostMapping("/reservations/{id}/fault-cancel")
+    @RequiresPermission("reservation:view")
     public Result<Void> faultCancelReservation(@PathVariable Long id,
                                                @RequestParam(required = false) String reason) {
         chargingService.faultCancelReservation(id, reason);
@@ -63,11 +65,20 @@ public class ChargingController {
 
     @Operation(summary = "分页查询预约记录")
     @GetMapping("/reservations")
+    @RequiresPermission("reservation:view")
     public Result<PageResult<ChargingReservation>> pageReservations(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String status,
             PageQuery pageQuery) {
         return Result.success(chargingService.pageReservations(userId, status, pageQuery));
+    }
+
+    @Operation(summary = "分页查询当前用户的预约记录")
+    @GetMapping("/reservations/my/page")
+    public Result<PageResult<ChargingReservation>> pageMyReservations(
+            @RequestParam(required = false) String status,
+            PageQuery pageQuery) {
+        return Result.success(chargingService.pageMyReservations(status, pageQuery));
     }
 
     // ==================== 充电相关 ====================
@@ -94,6 +105,7 @@ public class ChargingController {
 
     @Operation(summary = "分页查询充电订单")
     @GetMapping("/orders")
+    @RequiresPermission("order:view")
     public Result<PageResult<ChargingOrder>> pageOrders(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String status,
@@ -106,13 +118,19 @@ public class ChargingController {
     public Result<PageResult<ChargingOrder>> pageMyOrders(
             @RequestParam(required = false) String status,
             PageQuery pageQuery) {
-        Long userId = UserContext.getUserId();
-        return Result.success(chargingService.pageOrders(userId, status, pageQuery));
+        return Result.success(chargingService.pageMyOrders(status, pageQuery));
     }
 
     @Operation(summary = "根据ID查询订单")
     @GetMapping("/orders/{id}")
+    @RequiresPermission("order:view")
     public Result<ChargingOrder> getOrderById(@PathVariable Long id) {
         return Result.success(chargingService.getOrderById(id));
+    }
+
+    @Operation(summary = "查询当前用户的订单详情")
+    @GetMapping("/orders/my/{id}")
+    public Result<ChargingOrder> getMyOrderById(@PathVariable Long id) {
+        return Result.success(chargingService.getMyOrderById(id));
     }
 }
