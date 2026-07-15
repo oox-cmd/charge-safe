@@ -235,3 +235,16 @@ V6 后只读运行态权限数为 PLATFORM_ADMIN 40、PROPERTY_ADMIN 22、MAINTA
 32. `charge-safe-miniapp/src/api/mock/index.js`
 33. `charge-safe-miniapp/src/pages/reservation/confirm.vue`
 34. `charge-safe-miniapp/src/pages/repair/submit.vue`
+
+## 9. 2026-07-15 P0 收尾重新取证
+
+| 取证主题 | 当前源码事实 | 结论 |
+| --- | --- | --- |
+| 管理/居民访问 | 管理大屏路由和聚合接口均受 `statistics:bigscreen:view` 保护；居民路由使用独立 `resident:dashboard:view`，服务端从 `UserContext` 取社区 | 已完成，无需重复处理 |
+| 小程序 Mock | `main.js` 无条件导入 `src/api/mock`；`request.js` 的 `USE_MOCK` 缺省为真但没有控制安装 | 仍存在，阻塞 P0 |
+| 小程序网络配置 | `request.js`、`user.js` 与 Mock handlers 包含 `http://localhost:8080`；无 `.env.example`；登录请求发送 `phone/password`，后端 DTO 要求 `username/password` | 仍存在，阻塞真机与真实登录 |
+| 预约/充电持久化 | V1 已有 reservation/order/port 表和 `charging_order.reservation_id`；Service 有事务，但居民页面仍静态，且用户活动订单、跨社区和本人详情边界不完整 | 可用现有结构补齐，不需要 V7 |
+| 大屏端口 | `ManagementBigscreenVO` 只有聚合；管理页按 `totalPorts` 展开循环 ID，并混用静态告警/工单/隐患/电参 | 需要真实层级只读 DTO，不需要迁移 |
+| 测试 | Java 21 下 47/47；管理端与小程序构建通过；核心闭环异常和跨端契约覆盖不足 | 基线稳定，但收尾验证未完成 |
+
+重新审计执行计划见 `docs/superpowers/plans/2026-07-15-p0-closeout.md`，过程证据见 `docs/process/logs/2026-07-15-p0-closeout-revalidation.md`。计划不属于已实现事实；只有后续源码、测试与运行结果可改变本索引的“数据状态”。
