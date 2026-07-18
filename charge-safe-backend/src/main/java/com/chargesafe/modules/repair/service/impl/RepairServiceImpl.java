@@ -28,7 +28,12 @@ import com.chargesafe.modules.repair.mapper.RepairTicketLogMapper;
 import com.chargesafe.modules.repair.mapper.RepairTicketMapper;
 import com.chargesafe.modules.repair.service.RepairService;
 import com.chargesafe.modules.user.entity.SysUser;
+import com.chargesafe.modules.user.entity.SysUserRole;
+import com.chargesafe.modules.user.entity.SysRole;
+import com.chargesafe.modules.user.mapper.SysRoleMapper;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
+import com.chargesafe.modules.user.mapper.SysUserRoleMapper;
+import com.chargesafe.security.DataScope;
 import com.chargesafe.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -53,6 +58,8 @@ public class RepairServiceImpl implements RepairService {
     private final ParkingAreaMapper parkingAreaMapper;
     private final NotificationMapper notificationMapper;
     private final SysUserMapper userMapper;
+    private final SysRoleMapper roleMapper;
+    private final SysUserRoleMapper userRoleMapper;
 
     private static final AtomicLong TICKET_SEQ = new AtomicLong(1);
 
@@ -63,14 +70,27 @@ public class RepairServiceImpl implements RepairService {
         if (userId == null) {
             throw new BusinessException(ResultCode.UNAUTHORIZED);
         }
+        if (!DataScope.isResident()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
 
-        // 获取设备所属社区ID
-        Long communityId = null;
         ChargingDevice device = deviceMapper.selectById(dto.getDeviceId());
-        if (device != null) {
-            ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
-            if (parkingArea != null) {
-                communityId = parkingArea.getCommunityId();
+        if (device == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        ParkingArea parkingArea = parkingAreaMapper.selectById(device.getParkingAreaId());
+        if (parkingArea == null || parkingArea.getCommunityId() == null) {
+            throw new BusinessException("设备未关联有效社区");
+        }
+        Long communityId = parkingArea.getCommunityId();
+        if (!communityId.equals(DataScope.currentCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+
+        if (dto.getPortId() != null) {
+            ChargingPort port = portMapper.selectById(dto.getPortId());
+            if (port == null || !device.getId().equals(port.getDeviceId())) {
+                throw new BusinessException("充电端口与设备不匹配");
             }
         }
 
@@ -97,23 +117,48 @@ public class RepairServiceImpl implements RepairService {
     @Override
     public PageResult<RepairReport> pageReports(Long communityId, String status, PageQuery pageQuery) {
         Page<RepairReport> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
+        Long scopedCommunityId = DataScope.isPlatformAdmin() ? communityId : DataScope.currentCommunityId();
+        if (scopedCommunityId == null) {
+            return new PageResult<>(0, pageQuery.getPage(), pageQuery.getSize(), List.of());
+        }
         LambdaQueryWrapper<RepairReport> wrapper = new LambdaQueryWrapper<RepairReport>()
-                .eq(communityId != null, RepairReport::getCommunityId, communityId)
+                .eq(RepairReport::getCommunityId, scopedCommunityId)
                 .eq(StringUtils.hasText(status), RepairReport::getStatus, status)
                 .orderByDesc(RepairReport::getCreatedTime);
 
         Page<RepairReport> result = reportMapper.selectPage(page, wrapper);
+        enrichReports(result.getRecords());
+        return new PageResult<>(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
+    }
 
-        // Fill reporterName and deviceName
-        List<Long> reporterIds = result.getRecords().stream().map(RepairReport::getReporterId).filter(Objects::nonNull).distinct().toList();
+    @Override
+    public PageResult<RepairReport> pageMyReports(String status, PageQuery pageQuery) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        if (!DataScope.isResident()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        Page<RepairReport> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
+        Page<RepairReport> result = reportMapper.selectPage(page, new LambdaQueryWrapper<RepairReport>()
+                .eq(RepairReport::getReporterId, userId)
+                .eq(StringUtils.hasText(status), RepairReport::getStatus, status)
+                .orderByDesc(RepairReport::getCreatedTime));
+        enrichReports(result.getRecords());
+        return new PageResult<>(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
+    }
+
+    private void enrichReports(List<RepairReport> reports) {
+        List<Long> reporterIds = reports.stream().map(RepairReport::getReporterId).filter(Objects::nonNull).distinct().toList();
         Map<Long, String> reporterMap = reporterIds.isEmpty() ? Map.of() :
                 userMapper.selectBatchIds(reporterIds).stream().collect(Collectors.toMap(SysUser::getId, u -> u.getNickname() != null ? u.getNickname() : u.getUsername()));
 
-        List<Long> deviceIds = result.getRecords().stream().map(RepairReport::getDeviceId).filter(Objects::nonNull).distinct().toList();
+        List<Long> deviceIds = reports.stream().map(RepairReport::getDeviceId).filter(Objects::nonNull).distinct().toList();
         Map<Long, String> deviceMap = deviceIds.isEmpty() ? Map.of() :
                 deviceMapper.selectBatchIds(deviceIds).stream().collect(Collectors.toMap(ChargingDevice::getId, d -> d.getDeviceName() != null ? d.getDeviceName() : d.getDeviceCode()));
 
-        for (RepairReport report : result.getRecords()) {
+        for (RepairReport report : reports) {
             if (report.getReporterId() != null) {
                 report.setReporterName(reporterMap.get(report.getReporterId()));
             }
@@ -122,7 +167,6 @@ public class RepairServiceImpl implements RepairService {
             }
         }
 
-        return new PageResult<>(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
     }
 
     @Override
@@ -131,12 +175,34 @@ public class RepairServiceImpl implements RepairService {
         if (report == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST);
         }
+        assertReportVisibleToManager(report);
+        return report;
+    }
+
+    @Override
+    public RepairReport getMyReportById(Long id) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        if (!DataScope.isResident()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        RepairReport report = reportMapper.selectById(id);
+        if (report == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        if (!userId.equals(report.getReporterId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        enrichReports(List.of(report));
         return report;
     }
 
     @Override
     @Transactional
     public RepairTicket dispatchTicket(TicketDispatchDTO dto) {
+        assertPropertyManager();
         Long userId = UserContext.getUserId();
         RepairReport report = getReportById(dto.getReportId());
 
@@ -166,6 +232,8 @@ public class RepairServiceImpl implements RepairService {
         createNotification(dto.getAssigneeId(), "工单派发通知",
                 "您有新的维修工单待处理，工单号：" + ticket.getTicketNo(),
                 "REPAIR", "REPAIR_TICKET", ticket.getId());
+        createNotification(report.getReporterId(), "报修已派单",
+                "您提交的报修已派发维修人员处理。", "REPAIR", "REPAIR_REPORT", report.getId());
 
         return ticket;
     }
@@ -185,6 +253,7 @@ public class RepairServiceImpl implements RepairService {
         ticket.setStatus(TicketStatus.PROCESSING.getCode());
         ticket.setAcceptTime(LocalDateTime.now());
         ticketMapper.updateById(ticket);
+        updateReportStatus(ticket.getReportId(), ReportStatus.PROCESSING);
 
         saveTicketLog(ticketId, userId, "ACCEPT", "接单处理", TicketStatus.DISPATCHED.getCode(), TicketStatus.PROCESSING.getCode());
     }
@@ -213,6 +282,7 @@ public class RepairServiceImpl implements RepairService {
         ticket.setRepairImages(dto.getRepairImages());
         ticket.setFinishTime(LocalDateTime.now());
         ticketMapper.updateById(ticket);
+        updateReportStatus(ticket.getReportId(), ReportStatus.WAITING_ACCEPTANCE);
 
         saveTicketLog(ticketId, userId, "FINISH", "维修完成，等待验收", TicketStatus.PROCESSING.getCode(), TicketStatus.WAITING_ACCEPTANCE.getCode());
 
@@ -225,6 +295,7 @@ public class RepairServiceImpl implements RepairService {
     @Override
     @Transactional
     public void acceptTicketByProperty(Long ticketId) {
+        assertPropertyManager();
         Long userId = UserContext.getUserId();
         RepairTicket ticket = getTicketById(ticketId);
 
@@ -234,6 +305,7 @@ public class RepairServiceImpl implements RepairService {
 
         ticket.setStatus(TicketStatus.FINISHED.getCode());
         ticketMapper.updateById(ticket);
+        updateReportStatus(ticket.getReportId(), ReportStatus.FINISHED);
 
         saveTicketLog(ticketId, userId, "ACCEPT_REPAIR", "验收通过", TicketStatus.WAITING_ACCEPTANCE.getCode(), TicketStatus.FINISHED.getCode());
 
@@ -250,10 +322,12 @@ public class RepairServiceImpl implements RepairService {
         createNotification(ticket.getAssigneeId(), "工单验收通知",
                 "您的维修工单" + ticket.getTicketNo() + "已通过验收。",
                 "REPAIR", "REPAIR_TICKET", ticketId);
+        notifyReporter(ticket, "报修处理完成", "您提交的报修已处理完成。");
     }
 
     @Override
     public void rejectTicket(Long ticketId, String reason) {
+        assertPropertyManager();
         Long userId = UserContext.getUserId();
         RepairTicket ticket = getTicketById(ticketId);
 
@@ -263,6 +337,7 @@ public class RepairServiceImpl implements RepairService {
 
         ticket.setStatus(TicketStatus.REJECTED.getCode());
         ticketMapper.updateById(ticket);
+        updateReportStatus(ticket.getReportId(), ReportStatus.REJECTED);
 
         saveTicketLog(ticketId, userId, "REJECT", "验收不通过：" + reason, TicketStatus.WAITING_ACCEPTANCE.getCode(), TicketStatus.REJECTED.getCode());
 
@@ -274,6 +349,7 @@ public class RepairServiceImpl implements RepairService {
 
     @Override
     public void closeTicket(Long ticketId) {
+        assertPropertyManager();
         Long userId = UserContext.getUserId();
         RepairTicket ticket = getTicketById(ticketId);
 
@@ -292,9 +368,24 @@ public class RepairServiceImpl implements RepairService {
     public PageResult<RepairTicket> pageTickets(Long assigneeId, String status, PageQuery pageQuery) {
         Page<RepairTicket> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         LambdaQueryWrapper<RepairTicket> wrapper = new LambdaQueryWrapper<RepairTicket>()
-                .eq(assigneeId != null, RepairTicket::getAssigneeId, assigneeId)
                 .eq(StringUtils.hasText(status), RepairTicket::getStatus, status)
                 .orderByDesc(RepairTicket::getCreatedTime);
+
+        if (DataScope.isMaintainer()) {
+            Long userId = DataScope.currentUserId();
+            if (userId == null) {
+                return new PageResult<>(0, pageQuery.getPage(), pageQuery.getSize(), List.of());
+            }
+            wrapper.eq(RepairTicket::getAssigneeId, userId);
+        } else if (DataScope.isPlatformAdmin()) {
+            wrapper.eq(assigneeId != null, RepairTicket::getAssigneeId, assigneeId);
+        } else {
+            Long communityId = DataScope.currentCommunityId();
+            if (communityId == null) {
+                return new PageResult<>(0, pageQuery.getPage(), pageQuery.getSize(), List.of());
+            }
+            wrapper.eq(RepairTicket::getCommunityId, communityId);
+        }
 
         Page<RepairTicket> result = ticketMapper.selectPage(page, wrapper);
 
@@ -317,6 +408,7 @@ public class RepairServiceImpl implements RepairService {
         if (ticket == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST);
         }
+        assertTicketVisible(ticket);
         return ticket;
     }
 
@@ -340,6 +432,9 @@ public class RepairServiceImpl implements RepairService {
 
     private void createNotification(Long userId, String title, String content,
                                     String type, String businessType, Long businessId) {
+        if (userId == null) {
+            return;
+        }
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setTitle(title);
@@ -353,16 +448,69 @@ public class RepairServiceImpl implements RepairService {
 
     private void createNotificationForProperty(Long communityId, String title, String content,
                                                String type, String businessType, Long businessId) {
-        // 简化处理：发送给社区的第一个物业管理员
-        // 实际应该查询社区下所有物业管理员
-        Notification notification = new Notification();
-        notification.setUserId(2L); // 默认物业管理员ID
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setType(type);
-        notification.setBusinessType(businessType);
-        notification.setBusinessId(businessId);
-        notification.setIsRead(0);
-        notificationMapper.insert(notification);
+        if (communityId == null) {
+            return;
+        }
+        SysRole propertyRole = roleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getRoleCode, DataScope.ROLE_PROPERTY_ADMIN)
+                .eq(SysRole::getStatus, 1));
+        if (propertyRole == null) {
+            return;
+        }
+        List<Long> roleUserIds = userRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
+                        .eq(SysUserRole::getRoleId, propertyRole.getId()))
+                .stream().map(SysUserRole::getUserId).distinct().toList();
+        if (roleUserIds.isEmpty()) {
+            return;
+        }
+        List<SysUser> propertyUsers = userMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                .in(SysUser::getId, roleUserIds)
+                .eq(SysUser::getCommunityId, communityId)
+                .eq(SysUser::getStatus, 1));
+        propertyUsers.forEach(user -> createNotification(user.getId(), title, content, type, businessType, businessId));
+    }
+
+    private void notifyReporter(RepairTicket ticket, String title, String content) {
+        RepairReport report = reportMapper.selectById(ticket.getReportId());
+        if (report != null) {
+            createNotification(report.getReporterId(), title, content, "REPAIR", "REPAIR_REPORT", report.getId());
+        }
+    }
+
+    private void updateReportStatus(Long reportId, ReportStatus status) {
+        RepairReport report = reportMapper.selectById(reportId);
+        if (report != null) {
+            report.setStatus(status.getCode());
+            reportMapper.updateById(report);
+        }
+    }
+
+    private void assertPropertyManager() {
+        if (!DataScope.isPlatformAdmin() && !DataScope.isPropertyAdmin()) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+    }
+
+    private void assertReportVisibleToManager(RepairReport report) {
+        if (DataScope.isPlatformAdmin()) {
+            return;
+        }
+        if (DataScope.isPropertyAdmin() && Objects.equals(DataScope.currentCommunityId(), report.getCommunityId())) {
+            return;
+        }
+        throw new BusinessException(ResultCode.FORBIDDEN);
+    }
+
+    private void assertTicketVisible(RepairTicket ticket) {
+        if (DataScope.isPlatformAdmin()) {
+            return;
+        }
+        if (DataScope.isMaintainer() && Objects.equals(DataScope.currentUserId(), ticket.getAssigneeId())) {
+            return;
+        }
+        if (DataScope.isPropertyAdmin() && Objects.equals(DataScope.currentCommunityId(), ticket.getCommunityId())) {
+            return;
+        }
+        throw new BusinessException(ResultCode.FORBIDDEN);
     }
 }

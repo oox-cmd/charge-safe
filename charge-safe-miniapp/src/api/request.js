@@ -14,15 +14,15 @@ const request = (options) => {
       return
     }
 
-    const token = uni.getStorageSync('token')
+    const token = options.skipAuth ? '' : uni.getStorageSync('token')
+    const header = { 'Content-Type': 'application/json' }
+    if (token) header.Authorization = `Bearer ${token}`
+
     uni.request({
       url,
       method: options.method || 'GET',
       data: options.data,
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
+      header,
       success: (res) => {
         try {
           resolve(parseApiResponse(res))

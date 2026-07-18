@@ -12,6 +12,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -45,6 +48,7 @@ class JwtAuthenticationFilterHttpTest {
     private final AtomicInteger protectedInvocations = new AtomicInteger();
 
     private JwtUtils jwtUtils;
+    private JwtAuthenticationFilter filter;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -66,7 +70,7 @@ class JwtAuthenticationFilterHttpTest {
             return null;
         });
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
+        filter = new JwtAuthenticationFilter(
                 jwtUtils, userMapper, menuService, new ObjectMapper());
         SecurityTestController controller = new SecurityTestController(protectedInvocations);
         AspectJProxyFactory proxyFactory = new AspectJProxyFactory(controller);
@@ -184,6 +188,31 @@ class JwtAuthenticationFilterHttpTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
+        assertNull(UserContext.getUser());
+    }
+
+    @Test
+    void allowsPublicLoginEndpointWithStaleAuthorizationHeader() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .header("Authorization", "Bearer stale-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        assertNull(UserContext.getUser());
+    }
+
+    @Test
+    void allowsCorsPreflightWithoutJwt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/test/protected");
+        request.addHeader("Origin", "http://127.0.0.1:5173");
+        request.addHeader("Access-Control-Request-Method", "GET");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean chainInvoked = new AtomicBoolean();
+
+        filter.doFilter(request, response, (req, res) -> chainInvoked.set(true));
+
+        assertTrue(chainInvoked.get());
+        assertNoProtectedInvocation();
         assertNull(UserContext.getUser());
     }
 

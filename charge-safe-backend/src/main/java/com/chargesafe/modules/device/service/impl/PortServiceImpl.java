@@ -13,6 +13,9 @@ import com.chargesafe.modules.device.enums.PortStatus;
 import com.chargesafe.modules.device.mapper.ChargingDeviceMapper;
 import com.chargesafe.modules.device.mapper.ChargingPortMapper;
 import com.chargesafe.modules.device.service.PortService;
+import com.chargesafe.modules.community.entity.ParkingArea;
+import com.chargesafe.modules.community.mapper.ParkingAreaMapper;
+import com.chargesafe.security.DataScope;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.annotation.Lazy;
@@ -30,6 +33,7 @@ public class PortServiceImpl implements PortService {
 
     private final ChargingPortMapper portMapper;
     private final ChargingDeviceMapper deviceMapper;
+    private final ParkingAreaMapper parkingAreaMapper;
 
     @Override
     public PageResult<ChargingPort> pageList(Long deviceId, String status, PageQuery pageQuery) {
@@ -38,6 +42,16 @@ public class PortServiceImpl implements PortService {
                 .eq(deviceId != null, ChargingPort::getDeviceId, deviceId)
                 .eq(StringUtils.hasText(status), ChargingPort::getStatus, status)
                 .orderByAsc(ChargingPort::getPortNumber);
+        if (deviceId != null) {
+            assertDeviceVisible(deviceId);
+        }
+        if (!DataScope.isPlatformAdmin()) {
+            List<Long> deviceIds = scopedDeviceIds();
+            if (deviceIds.isEmpty()) {
+                return new PageResult<>(0, pageQuery.getPage(), pageQuery.getSize(), List.of());
+            }
+            wrapper.in(ChargingPort::getDeviceId, deviceIds);
+        }
 
         Page<ChargingPort> result = portMapper.selectPage(page, wrapper);
 
@@ -56,6 +70,7 @@ public class PortServiceImpl implements PortService {
 
     @Override
     public List<ChargingPort> listByDeviceId(Long deviceId) {
+        assertDeviceVisible(deviceId);
         return portMapper.selectList(
                 new LambdaQueryWrapper<ChargingPort>()
                         .eq(ChargingPort::getDeviceId, deviceId)
@@ -68,6 +83,7 @@ public class PortServiceImpl implements PortService {
         if (parkingAreaId == null) {
             return Collections.emptyList();
         }
+        assertParkingAreaVisible(parkingAreaId);
         // 先查询车棚下所有设备
         List<ChargingDevice> devices = deviceMapper.selectList(
                 new LambdaQueryWrapper<ChargingDevice>()
@@ -102,12 +118,14 @@ public class PortServiceImpl implements PortService {
         if (port == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST);
         }
+        assertDeviceVisible(port.getDeviceId());
         return port;
     }
 
     @Override
     @Transactional
     public ChargingPort create(PortDTO dto) {
+        assertDeviceVisible(dto.getDeviceId());
         ChargingPort port = new ChargingPort();
         BeanUtils.copyProperties(dto, port);
         port.setStatus(PortStatus.IDLE.getCode());
@@ -129,6 +147,7 @@ public class PortServiceImpl implements PortService {
         if (device == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST);
         }
+        assertParkingAreaVisible(device.getParkingAreaId());
 
         List<ChargingPort> ports = new ArrayList<>();
         for (int i = 1; i <= count; i++) {
@@ -157,16 +176,19 @@ public class PortServiceImpl implements PortService {
 
     @Override
     public Map<String, Long> countByStatus(Long communityId) {
-        // 查询条件：如果有社区ID，需要先查社区下的设备
         LambdaQueryWrapper<ChargingPort> wrapper = new LambdaQueryWrapper<>();
-
-        if (communityId != null) {
-            List<ChargingDevice> devices = deviceMapper.selectList(
-                    new LambdaQueryWrapper<ChargingDevice>()
-                            .eq(ChargingDevice::getParkingAreaId, communityId)
-            );
+        Long scopedCommunityId = DataScope.isPlatformAdmin() ? communityId : DataScope.currentCommunityId();
+        if (scopedCommunityId != null) {
+            List<Long> areaIds = parkingAreaMapper.selectList(new LambdaQueryWrapper<ParkingArea>()
+                            .eq(ParkingArea::getCommunityId, scopedCommunityId))
+                    .stream().map(ParkingArea::getId).toList();
+            if (areaIds.isEmpty()) {
+                return Map.of();
+            }
+            List<ChargingDevice> devices = deviceMapper.selectList(new LambdaQueryWrapper<ChargingDevice>()
+                    .in(ChargingDevice::getParkingAreaId, areaIds));
             if (devices.isEmpty()) {
-                return new HashMap<>();
+                return Map.of();
             }
             List<Long> deviceIds = devices.stream()
                     .map(ChargingDevice::getId)
@@ -190,5 +212,42 @@ public class PortServiceImpl implements PortService {
             device.setPortCount(count.intValue());
             deviceMapper.updateById(device);
         }
+    }
+
+    private void assertDeviceVisible(Long deviceId) {
+        ChargingDevice device = deviceMapper.selectById(deviceId);
+        if (device == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        assertParkingAreaVisible(device.getParkingAreaId());
+    }
+
+    private void assertParkingAreaVisible(Long parkingAreaId) {
+        if (DataScope.isPlatformAdmin()) {
+            return;
+        }
+        ParkingArea parkingArea = parkingAreaMapper.selectById(parkingAreaId);
+        if (parkingArea == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_EXIST);
+        }
+        if (!Objects.equals(parkingArea.getCommunityId(), DataScope.currentCommunityId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+    }
+
+    private List<Long> scopedDeviceIds() {
+        Long communityId = DataScope.currentCommunityId();
+        if (communityId == null) {
+            return List.of();
+        }
+        List<Long> areaIds = parkingAreaMapper.selectList(new LambdaQueryWrapper<ParkingArea>()
+                        .eq(ParkingArea::getCommunityId, communityId))
+                .stream().map(ParkingArea::getId).toList();
+        if (areaIds.isEmpty()) {
+            return List.of();
+        }
+        return deviceMapper.selectList(new LambdaQueryWrapper<ChargingDevice>()
+                        .in(ChargingDevice::getParkingAreaId, areaIds))
+                .stream().map(ChargingDevice::getId).toList();
     }
 }

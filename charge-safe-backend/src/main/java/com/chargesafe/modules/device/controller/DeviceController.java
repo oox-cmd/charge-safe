@@ -24,6 +24,7 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     @Operation(summary = "分页查询设备列表")
+    @RequiresPermission("device:list:view")
     @GetMapping
     public Result<PageResult<ChargingDevice>> pageList(
             @RequestParam(required = false) Long parkingAreaId,
@@ -32,6 +33,7 @@ public class DeviceController {
     }
 
     @Operation(summary = "查询车棚下所有设备")
+    @RequiresPermission("device:list:view")
     @GetMapping("/list")
     public Result<List<ChargingDevice>> listByParkingAreaId(
             @RequestParam(required = false) Long parkingAreaId) {
@@ -39,6 +41,7 @@ public class DeviceController {
     }
 
     @Operation(summary = "根据ID查询设备")
+    @RequiresPermission("device:list:view")
     @GetMapping("/{id}")
     public Result<ChargingDevice> getById(@PathVariable Long id) {
         return Result.success(deviceService.getById(id));

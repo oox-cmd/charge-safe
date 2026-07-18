@@ -30,7 +30,7 @@ mybatis-plus:
 
 # JWT 配置
 jwt:
-  secret: ChargeSafe2026SecretKeyForJWTTokenGeneration!@#$%
+  secret: ${JWT_SECRET}
   expiration: 86400000  # 24小时
 
 # Knife4j 配置

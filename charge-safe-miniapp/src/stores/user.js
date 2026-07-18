@@ -3,8 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getCurrentUser, loginByPassword, loginBySms } from '@/api/auth'
-import { updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, changePassword as changePasswordApi } from '@/api/user'
+import { getCurrentUser, loginByPassword } from '@/api/auth'
 
 export const useUserStore = defineStore('user', () => {
   const savedCommunity = uni.getStorageSync('community') || {}
@@ -45,12 +44,6 @@ export const useUserStore = defineStore('user', () => {
     return false
   }
 
-  async function loginWithSms(params) {
-    const res = await loginBySms(params)
-    if (res.code === 200 && res.data) { saveLoginState(res.data); return true }
-    return false
-  }
-
   async function fetchUserInfo() {
     try {
       const res = await getCurrentUser()
@@ -67,39 +60,6 @@ export const useUserStore = defineStore('user', () => {
       }
     } catch { /* ignore */ }
     return false
-  }
-
-  async function updateProfile(params) {
-    const res = await updateProfileApi(params)
-    if (res.code === 200 && res.data) {
-      nickname.value = res.data.nickname
-      phone.value = res.data.phone
-      avatar.value = res.data.avatar || avatar.value
-      // 同步到 storage
-      const info = uni.getStorageSync('userInfo') || {}
-      info.nickname = res.data.nickname
-      info.phone = res.data.phone
-      uni.setStorageSync('userInfo', info)
-      return true
-    }
-    return false
-  }
-
-  async function uploadAvatar(filePath) {
-    const res = await uploadAvatarApi(filePath)
-    if (res.code === 200 && res.data) {
-      avatar.value = res.data.avatar
-      const info = uni.getStorageSync('userInfo') || {}
-      info.avatar = res.data.avatar
-      uni.setStorageSync('userInfo', info)
-      return res.data.avatar
-    }
-    return null
-  }
-
-  async function changePassword(params) {
-    const res = await changePasswordApi(params)
-    return res.code === 200
   }
 
   function setCommunity(id, name) {
@@ -125,5 +85,5 @@ export const useUserStore = defineStore('user', () => {
   }
 
   return { token, userId, username, phone, nickname, avatar, roleCode, roleName, communityId, communityName, isLoggedIn,
-    loginWithPassword, loginWithSms, fetchUserInfo, updateProfile, uploadAvatar, changePassword, setCommunity, logout, saveLoginState }
+    loginWithPassword, fetchUserInfo, setCommunity, logout, saveLoginState }
 })

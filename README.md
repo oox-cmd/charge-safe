@@ -52,7 +52,8 @@ charge-safe/
 │               ├── V3__add_menu_tables.sql
 │               ├── V4__add_community_coordinates.sql
 │               ├── V5__adjust_property_admin_menus.sql
-│               └── V6__add_resident_dashboard_permission.sql
+│               ├── V6__add_resident_dashboard_permission.sql
+│               └── V7__add_dept_and_device_category.sql
 ├── charge-safe-admin/                # Vue3 Web 管理端
 │   └── src/
 │       ├── api/                      # API 接口封装
@@ -105,9 +106,9 @@ charge-safe/
 
 | 环境 | Host | Port | Database | Username | Password |
 |------|------|------|----------|----------|----------|
-| 本地开发库 | 127.0.0.1 | 3306 | charge_safe_dev | charge_safe_app | cugb666 |
-| 云端开发库 (隧道) | 127.0.0.1 | 13306 | charge_safe_dev | charge_safe_app | cugb666 |
-| 云端正式库 | 127.0.0.1 | 3306 | charge_safe | charge_safe_app | cugb666 |
+| 本地开发库 | 127.0.0.1 | 3306 | charge_safe_dev | charge_safe_app | 由本机环境变量提供 |
+| 云端开发库 (隧道) | 127.0.0.1 | 13306 | charge_safe_dev | charge_safe_app | 由本机环境变量提供 |
+| 云端正式库 | 127.0.0.1 | 3306 | charge_safe | charge_safe_app | 由部署环境变量提供 |
 
 ## 快速开始
 
@@ -143,13 +144,13 @@ CREATE DATABASE IF NOT EXISTS charge_safe_dev
   COLLATE utf8mb4_general_ci;
 
 CREATE USER IF NOT EXISTS 'charge_safe_app'@'localhost'
-  IDENTIFIED BY 'cugb666';
+   IDENTIFIED BY '<YOUR_LOCAL_PASSWORD>';
 
 GRANT ALL PRIVILEGES ON charge_safe_dev.*
   TO 'charge_safe_app'@'localhost';
 ```
 
-只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V6，也不要执行根目录
+只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V7，也不要执行根目录
 `sql/schema.sql` 或 `sql/data.sql`。后端启动时会由 Flyway 自动校验已执行迁移并
 执行 pending migration；存在 pending migration 是正常升级状态，不代表迁移异常。
 
@@ -305,7 +306,8 @@ npx npm@10.9.8 run dev:h5
 | 预约 | `/api/reservations` | 6 |
 | 充电 | `/api/charging` | 3 |
 | 订单 | `/api/orders` | 3 |
-| 报修 | `/api/repair-reports` | 3 |
+| 报修（管理） | `/api/repair-reports` | 2 |
+| 报修（居民） | `/api/resident/repair-reports` | 3 |
 | 工单 | `/api/repair-tickets` | 8 |
 | 巡检 | `/api/inspection-tasks` | 7 |
 | 隐患 | `/api/hazards` | 6 |
@@ -326,7 +328,8 @@ charge-safe-backend/src/main/resources/db/migration/
 ├── V3__add_menu_tables.sql     # RBAC 菜单权限表 + 菜单数据（+2 张表）
 ├── V4__add_community_coordinates.sql  # 社区经纬度 + 补充演示数据
 ├── V5__adjust_property_admin_menus.sql # 物业管理员菜单权限补充
-└── V6__add_resident_dashboard_permission.sql # 居民页面权限及角色映射
+├── V6__add_resident_dashboard_permission.sql # 居民页面权限及角色映射
+└── V7__add_dept_and_device_category.sql # 部门、设备分类及居民报修权限
 ```
 
 ### 规则
@@ -335,24 +338,23 @@ charge-safe-backend/src/main/resources/db/migration/
 2. 不允许手动改库后只口头同步
 3. 不允许业务代码启动时自动 DROP 表
 4. 本地库、云端开发库、云端正式库的表结构由同一套迁移文件生成
-5. 不要求团队成员手动逐个执行 V1 至 V6
+5. 不要求团队成员手动逐个执行迁移；由 Flyway 执行 V1 至 V7
 6. 不得同时执行 `sql/schema.sql`、`sql/data.sql` 和 Flyway
 7. 根目录 `sql/schema.sql`、`sql/data.sql` 不符合 Flyway 命名规则，也未被当前
    MySQL Profile 或启动脚本自动引用；它们仅保留作参考，默认流程不得执行
-8. 已发布的 V1 至 V6 不得移动、重命名、修改内容或版本号
+8. 已发布的 V1 至 V5 不得移动、重命名、修改内容或版本号；待执行的 V6、V7 也必须在评审后随代码一起提交
 9. Flyway 在后端启动时自动校验历史并执行 pending migration；pending 不等于异常
 10. 不得手工修改 `flyway_schema_history`，也不得随意执行 repair、baseline 或 clean
 
-H2 Profile 是独立机制：`application-h2.yml` 会关闭 Flyway，并使用
-`classpath:db/h2/schema.sql` 和 `classpath:db/h2/data.sql`。Windows MySQL 和
-WSL 本地开发均不使用该 H2 初始化流程。
+项目不提供 H2 Profile，以避免与正式 MySQL/Flyway 路径产生不一致的架构或测试结论；
+本地开发和验证统一使用 Windows 原生 MySQL。
 
 ### 团队复现流程
 
 1. 安装并启动 MySQL；推荐 8.x，当前开发机器实际使用 9.7
-2. 使用本文记录的本地开发专用账号和密码
+2. 在本机环境变量中设置 `CHARGE_SAFE_DB_USERNAME`、`CHARGE_SAFE_DB_PASSWORD` 和 `JWT_SECRET`
 3. 创建空数据库 `charge_safe_dev`
-4. 确保 `charge_safe_app` 对该数据库具有所需权限
+4. 确保该本机开发账号对数据库具有所需权限
 5. 启动后端，不手动执行根目录 `sql/` 下的脚本
 6. 等待 Flyway 从 `charge-safe-backend/src/main/resources/db/migration/` 自动执行所有 pending migration
 7. 检查 `flyway_schema_history`，确认所有迁移成功
@@ -405,7 +407,7 @@ CHARGE_SAFE_DB_HOST=127.0.0.1
 CHARGE_SAFE_DB_PORT=3306
 CHARGE_SAFE_DB_NAME=charge_safe
 CHARGE_SAFE_DB_USERNAME=charge_safe_app
-CHARGE_SAFE_DB_PASSWORD=cugb666
+CHARGE_SAFE_DB_PASSWORD=<set-locally>
 ```
 
 ### 启动命令
@@ -586,16 +588,13 @@ java -jar /opt/charge-safe/charge-safe-backend.jar
 
 ### 当前开发阶段
 
-**项目处于中期开发阶段：P0 基础阶段收尾已于 2026-07-15 完成——后端状态机收紧、权限码统一、居民与管理大屏访问模型拆分、Java 21 基线固化，以及小程序车棚/端口/预约/充电/订单页面全面接入真实 API 替换本地 Mock，管理大屏端口矩阵改用真实端口明细、未接入数据标记为演示。P1 任务按路线图推进。当前不是最终交付状态。**
+**项目处于中期开发阶段：本机 MySQL/Flyway、后端核心只读接口与管理端登录已完成运行态验证；完整业务写入状态流、浏览器/真机端到端和外部系统接入仍在推进。当前不是最终交付状态。**
 
-根据审查，当前前端整体 AI 味过重，需要进行 UI/UX 整改。详见：
-- `docs/audit/overall-function-and-experience-audit.md` — 功能与体验总审查
-- `docs/audit/frontend-ui-ai-flavor-audit.md` — AI 味问题清单
-- `docs/audit/new-frontend-design-guidelines.md` — 新设计规范
-- `docs/tasks/frontend-polish-and-fix-execution-plan.md` — 整改执行计划
-- `docs/audit/midterm-development-baseline-audit.md` — 当前源码事实基线
-- `docs/research/three-level-dashboard-open-source-research.md` — 三级大屏技术与免费资产调研
-- `docs/tasks/next-stage-development-roadmap.md` — 下一阶段开发顺序
+当前功能、验证边界和待办统一见 [`docs/`](docs/README.md)：
+
+- [`docs/summary.md`](docs/summary.md) — 当前功能与验证结果
+- [`docs/development-guide.md`](docs/development-guide.md) — 开发、迁移、权限和大屏约束
+- [`docs/current-backlog.md`](docs/current-backlog.md) — 未完成事项与外部依赖
 
 ### Skills 使用
 
@@ -620,7 +619,7 @@ Skills 按任务触发，不要求团队成员把全局 Skills 复制进仓库�
 6. **阶段 6**：小程序体验重构和真机验收
 7. **阶段 7**：测试、性能、文档和演示准备
 
-详见 `docs/tasks/next-stage-development-roadmap.md`。三级大屏是下一阶段展示重点，模型优先采用免费、合法、许可证清晰的 CC0/开源资源；未经许可证确认不得下载后提交到仓库。当前尚未开始最终交付文档定稿，相关文档必须随代码和验证结果持续更新。
+详见 [`docs/current-backlog.md`](docs/current-backlog.md)。三级大屏后续扩展仍须优先使用免费、合法、许可证清晰的 CC0/开源资源；未经许可证确认不得下载后提交到仓库。当前文档以 `README.md`、`docs/summary.md`、`docs/development-guide.md` 和 `docs/current-backlog.md` 为准。
 
 ### 三级大屏已确认技术边界
 
@@ -655,24 +654,14 @@ Skills 按任务触发，不要求团队成员把全局 Skills 复制进仓库�
 | DISABLED (停用) | 深灰色 | #64748b |
 | OFFLINE (离线) | 暗灰色 | #475569 |
 
-详见 `docs/audit/new-frontend-design-guidelines.md`
+实现约束见 [`docs/development-guide.md`](docs/development-guide.md)；历史设计审查已归档，不作为当前事实来源。
 
 ### 文档索引
 
 | 文档 | 路径 | 用途 |
 |------|------|------|
-| 功能审查 | `docs/audit/overall-function-and-experience-audit.md` | 当前问题总览 |
-| AI 味审查 | `docs/audit/frontend-ui-ai-flavor-audit.md` | 前端问题清单 |
-| 设计规范 | `docs/audit/new-frontend-design-guidelines.md` | 改代码必须遵守 |
-| 执行计划 | `docs/tasks/frontend-polish-and-fix-execution-plan.md` | 下一步任务书 |
-| 数据库设计 | `docs/design/database-design.md` | 数据表结构 |
-| 前端页面设计 | `docs/design/frontend-page-design.md` | 页面设计说明 |
-| 大屏设计 | `docs/design/dashboard-visual-design.md` | 大屏可视化设计 |
-| 小程序设计 | `docs/design/miniapp-page-design.md` | 小程序页面设计 |
-| 中期事实基线 | `docs/audit/midterm-development-baseline-audit.md` | 当前完成度与风险 |
-| 源码证据索引 | `docs/audit/source-of-truth-evidence-index.md` | 接口、页面、数据库和构建证据 |
-| 三级大屏调研 | `docs/research/three-level-dashboard-open-source-research.md` | 技术、项目、资产与许可证候选 |
-| 大屏数据建模 | `docs/research/dashboard-data-and-scene-modeling.md` | 状态机、DTO 和场景映射 |
-| 大屏实施计划 | `docs/tasks/three-level-dashboard-implementation-plan.md` | MVP、演示版、增强版 |
-| 下一阶段路线 | `docs/tasks/next-stage-development-roadmap.md` | 中期后续开发顺序 |
-| 过程文档计划 | `docs/process/development-process-documentation-plan.md` | 日志、ADR、资产与验收模板 |
+| 当前总览 | [`docs/summary.md`](docs/summary.md) | 当前功能、验证证据和已知边界 |
+| 开发联调指南 | [`docs/development-guide.md`](docs/development-guide.md) | 环境、迁移、权限、Mock 与大屏规则 |
+| 当前待办 | [`docs/current-backlog.md`](docs/current-backlog.md) | 优先级、验收方式和外部依赖 |
+| 过程日志 | [`docs/process/logs/`](docs/process/logs/) | 已实施批次的变更与验证记录 |
+| 历史归档 | [`docs/archive/`](docs/archive/) | 调研、旧审计、设计草案和已完成计划 |

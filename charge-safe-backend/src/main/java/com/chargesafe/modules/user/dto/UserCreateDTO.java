@@ -24,5 +24,7 @@ public class UserCreateDTO {
 
     private Long communityId;
 
+    private Long deptId;
+
     private List<Long> roleIds;
 }

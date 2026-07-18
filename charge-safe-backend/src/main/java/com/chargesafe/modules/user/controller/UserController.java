@@ -23,6 +23,7 @@ public class UserController {
     private final UserService userService;
 
     @Operation(summary = "分页查询用户")
+    @RequiresPermission("system:user:view")
     @GetMapping
     public Result<PageResult<UserVO>> pageList(UserQueryDTO query, PageQuery pageQuery) {
         return Result.success(userService.pageList(query, pageQuery));

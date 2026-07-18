@@ -6,8 +6,6 @@ import { createMockRequest } from './runtime.mjs'
 
 // 加载各模块注册 Mock（无循环依赖 — 它们只依赖 registry）
 import './auth'
-import './user'
-import './community'
 
 let installed = false
 

@@ -2,75 +2,80 @@
   <view class="page" v-if="!submitted">
     <view class="card">
       <text class="card-title">提交报修</text>
-
-      <!-- 设备 -->
-      <view class="field"><text class="lbl">设备/端口</text><input v-model="form.deviceName" placeholder="请输入设备或端口编号" placeholder-style="color:#c0c4cc" class="input" /></view>
-
-      <!-- 故障类型 -->
-      <view class="field"><text class="lbl">故障类型</text>
+      <view class="field">
+        <text class="lbl">设备/端口</text>
+        <text class="readonly">{{ deviceLabel || '请从车棚端口详情进入报修' }}</text>
+      </view>
+      <view class="field">
+        <text class="lbl">故障类型</text>
         <view class="tag-row">
-          <text v-for="t in faultTypes" :key="t" :class="['tag', { on: form.faultType === t }]" @click="form.faultType = t">{{ t }}</text>
+          <text v-for="type in faultTypes" :key="type" :class="['tag', { on: form.faultType === type }]" @click="form.faultType = type">{{ type }}</text>
         </view>
       </view>
-
-      <!-- 描述 -->
-      <view class="field"><text class="lbl">问题描述（至少10个字）</text>
-        <textarea v-model="form.description" placeholder="请详细描述故障情况" placeholder-style="color:#c0c4cc" class="textarea" :maxlength="500" />
-        <text class="count">{{ form.description.length }}/500</text>
+      <view class="field">
+        <text class="lbl">问题描述（至少 10 个字）</text>
+        <textarea v-model="form.faultDesc" placeholder="请详细描述故障情况" placeholder-style="color:#c0c4cc" class="textarea" :maxlength="500" />
+        <text class="count">{{ form.faultDesc.length }}/500</text>
       </view>
-
-      <!-- 上传图片 -->
-      <view class="field"><text class="lbl">现场照片（最多3张）</text>
-        <view class="photo-grid">
-          <view class="photo-item" v-for="(img, i) in form.images" :key="i">
-            <image :src="img" class="photo-thumb" mode="aspectFill" />
-            <view class="photo-del" @click="form.images.splice(i, 1)">✕</view>
-          </view>
-          <view class="photo-add" v-if="form.images.length < 3" @click="addPhoto">
-            <text class="add-icon">+</text>
-            <text class="add-text">{{ form.images.length === 0 ? '添加照片' : form.images.length + '/3' }}</text>
-          </view>
-        </view>
-      </view>
+      <text class="notice">现场图片上传尚未开放，因此本次报修不会伪造图片附件。</text>
     </view>
-
     <button :loading="loading" :disabled="!valid" class="btn-submit" @click="handleSubmit">提交报修</button>
   </view>
-
-  <!-- 成功页 -->
   <view class="success-page" v-else>
     <view class="success-card">
-      <text class="check">✅</text>
-      <text class="stitle">提交成功</text>
-      <text class="sno">工单号：{{ ticketNo }}</text>
-      <text class="stip">维修人员将尽快处理，请耐心等待</text>
+      <text class="check">✓</text>
+      <text class="stitle">报修已提交</text>
+      <text class="sno">报修单 #{{ reportId }}</text>
+      <text class="stip">物业人员会在后台受理；进度会显示在“我的报修”和消息通知中。</text>
       <button class="btn-back" @click="goList">查看报修记录</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-const faultTypes = ['无法充电', '端口损坏', '线路故障', '设备离线', '其他']
-const loading = ref(false); const submitted = ref(false); const ticketNo = ref('')
-const form = reactive({ deviceName: '', faultType: '', description: '', images: [] })
-const valid = computed(() => form.deviceName && form.faultType && form.description.length >= 10)
+import { computed, reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { createRepairReport } from '@/api/repair'
 
-function addPhoto() {
-  uni.chooseImage({
-    count: 3 - form.images.length, sizeType: ['compressed'], sourceType: ['album', 'camera'],
-    success: (res) => { form.images.push(...res.tempFilePaths) }
-  })
-}
-function handleSubmit() {
+const faultTypes = ['无法充电', '端口损坏', '线路故障', '设备离线', '其他']
+const loading = ref(false)
+const submitted = ref(false)
+const reportId = ref('')
+const deviceId = ref(null)
+const portId = ref(null)
+const deviceLabel = ref('')
+const form = reactive({ faultType: '', faultDesc: '' })
+const valid = computed(() => deviceId.value && form.faultType && form.faultDesc.trim().length >= 10)
+
+onLoad((options) => {
+  const parsedDeviceId = Number(options.deviceId)
+  const parsedPortId = Number(options.portId)
+  deviceId.value = Number.isFinite(parsedDeviceId) && parsedDeviceId > 0 ? parsedDeviceId : null
+  portId.value = Number.isFinite(parsedPortId) && parsedPortId > 0 ? parsedPortId : null
+  deviceLabel.value = options.portName || options.deviceName || ''
+})
+
+async function handleSubmit() {
+  if (!valid.value) return
   loading.value = true
-  setTimeout(() => {
+  try {
+    const res = await createRepairReport({
+      deviceId: deviceId.value,
+      portId: portId.value,
+      faultType: form.faultType,
+      faultDesc: form.faultDesc.trim()
+    })
+    if (res.code === 200 && res.data?.id) {
+      reportId.value = res.data.id
+      submitted.value = true
+    }
+  } catch {
+    // request.js 已统一展示错误提示
+  } finally {
     loading.value = false
-    const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    ticketNo.value = 'TK' + ts + String(Math.floor(Math.random() * 1000)).padStart(3, '0')
-    submitted.value = true
-  }, 1000)
+  }
 }
+
 function goList() { uni.redirectTo({ url: '/pages/repair/list' }) }
 </script>
 
@@ -80,30 +85,20 @@ function goList() { uni.redirectTo({ url: '/pages/repair/list' }) }
 .card-title { font-size: 34rpx; font-weight: 800; color: #1e3a8a; display: block; margin-bottom: 32rpx; }
 .field { margin-bottom: 28rpx; }
 .lbl { font-size: 28rpx; color: #475569; margin-bottom: 12rpx; display: block; font-weight: 500; }
-.input { border: 2rpx solid #e8ecf0; border-radius: 14rpx; padding: 22rpx; font-size: 28rpx; background: #f8fafc; color: #1e293b; }
+.readonly { display: block; border: 2rpx solid #e8ecf0; border-radius: 14rpx; padding: 22rpx; font-size: 28rpx; background: #f8fafc; color: #64748b; }
 .textarea { border: 2rpx solid #e8ecf0; border-radius: 14rpx; padding: 22rpx; font-size: 28rpx; height: 180rpx; background: #f8fafc; color: #1e293b; width: 100%; box-sizing: border-box; }
 .count { font-size: 22rpx; color: #94a3b8; text-align: right; display: block; margin-top: 8rpx; }
-
 .tag-row { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .tag { padding: 14rpx 28rpx; font-size: 26rpx; color: #64748b; background: #f8fafc; border: 2rpx solid #e8ecf0; border-radius: 14rpx; }
 .tag.on { color: #2563eb; background: #eff6ff; border-color: #2563eb; font-weight: 600; }
-
-.photo-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.photo-item { position: relative; width: 160rpx; height: 160rpx; }
-.photo-thumb { width: 100%; height: 100%; border-radius: 14rpx; }
-.photo-del { position: absolute; top: -10rpx; right: -10rpx; width: 40rpx; height: 40rpx; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: #fff; }
-.photo-add { width: 160rpx; height: 160rpx; border: 2rpx dashed #cbd5e1; border-radius: 14rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; }
-.add-icon { font-size: 48rpx; color: #94a3b8; }
-.add-text { font-size: 22rpx; color: #94a3b8; margin-top: 6rpx; }
-
-.btn-submit { width: 100%; height: 88rpx; background: linear-gradient(135deg, #1e3a8a, #1e40af, #1d4ed8); color: #fff; border: none; border-radius: 18rpx; font-size: 32rpx; font-weight: 600; box-shadow: 0 8rpx 24rpx rgba(30,64,175,.22); }
-.btn-submit[disabled] { opacity: .45; box-shadow: none; }
-
+.notice { display: block; font-size: 24rpx; color: #64748b; background: #f8fafc; padding: 18rpx; border-radius: 12rpx; line-height: 1.5; }
+.btn-submit, .btn-back { width: 100%; height: 88rpx; background: linear-gradient(135deg, #1e3a8a, #1e40af, #1d4ed8); color: #fff; border: none; border-radius: 18rpx; font-size: 32rpx; font-weight: 600; }
+.btn-submit[disabled] { opacity: .45; }
 .success-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: #f0f4f8; }
 .success-card { background: #fff; border-radius: 28rpx; padding: 60rpx 40rpx; text-align: center; width: 100%; max-width: 600rpx; box-shadow: 0 8rpx 40rpx rgba(30,58,138,.06); }
-.check { font-size: 100rpx; display: block; margin-bottom: 20rpx; }
+.check { width: 100rpx; height: 100rpx; line-height: 100rpx; border-radius: 50%; background: #dcfce7; color: #15803d; font-size: 60rpx; display: block; margin: 0 auto 20rpx; }
 .stitle { font-size: 36rpx; font-weight: 800; color: #1e3a8a; display: block; }
 .sno { font-size: 30rpx; font-weight: 600; color: #1e293b; margin-top: 20rpx; display: block; padding: 20rpx; background: #f8fafc; border-radius: 14rpx; }
-.stip { font-size: 26rpx; color: #94a3b8; margin-top: 16rpx; display: block; }
-.btn-back { width: 100%; height: 88rpx; background: linear-gradient(135deg, #1e3a8a, #1e40af, #1d4ed8); color: #fff; border: none; border-radius: 18rpx; font-size: 30rpx; font-weight: 600; margin-top: 40rpx; }
+.stip { font-size: 26rpx; color: #64748b; margin-top: 16rpx; display: block; line-height: 1.6; }
+.btn-back { margin-top: 40rpx; font-size: 30rpx; }
 </style>

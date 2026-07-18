@@ -15,6 +15,7 @@ public class RepairReportDTO {
 
     private Long portId;
 
+    @NotBlank(message = "故障类型不能为空")
     private String faultType;
 
     @NotBlank(message = "故障描述不能为空")

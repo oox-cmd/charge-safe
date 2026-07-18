@@ -31,32 +31,33 @@
 
 ```sql
 CREATE DATABASE IF NOT EXISTS charge_safe_dev DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER IF NOT EXISTS 'charge_safe_app'@'%' IDENTIFIED BY 'cugb666';
+CREATE USER IF NOT EXISTS 'charge_safe_app'@'%' IDENTIFIED BY '<YOUR_LOCAL_PASSWORD>';
 GRANT ALL PRIVILEGES ON charge_safe_dev.* TO 'charge_safe_app'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Flyway 会在应用启动时自动校验并执行 `src/main/resources/db/migration` 下的 pending 迁移（当前为 V1→V6），无需手动建表。
+Flyway 会在应用启动时自动校验并执行 `src/main/resources/db/migration` 下的 pending 迁移（当前为 V1→V7），无需手动建表。
 
 ### 2. 启动（本地开发）
 
-**方式一：双击启动脚本（推荐，已配好 JDK/Maven 路径）**
+**方式一：双击启动脚本（推荐，使用 PATH 中的 JDK 21 和 Maven）**
 
 ```powershell
 cd charge-safe-backend
 .\run-local.bat
 ```
 
-> 首次运行前请用记事本打开 `run-local.bat`，确认 `JAVA_HOME` 指向你机器上 JDK 21 的实际安装路径。
+> 启动脚本会校验 `CHARGE_SAFE_DB_USERNAME`、`CHARGE_SAFE_DB_PASSWORD`、`JWT_SECRET`，并执行 `java -version`、`mvn -version`；两者必须使用 JDK 21。
 
 **方式二：命令行启动**
 
 ```powershell
 cd charge-safe-backend
 
-# 必须指定 JDK 21（本机示例路径）
-$env:JAVA_HOME = "D:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot"
-$env:PATH = "C:\tools\apache-maven-3.9.8\bin;" + $env:PATH
+# 凭据不再写入配置文件；按本机实际值设置。
+$env:CHARGE_SAFE_DB_USERNAME = '<YOUR_LOCAL_USERNAME>'
+$env:CHARGE_SAFE_DB_PASSWORD = '<YOUR_LOCAL_PASSWORD>'
+$env:JWT_SECRET = '<a-long-random-local-secret>'
 
 java -version
 mvn -version
@@ -81,7 +82,7 @@ java -jar target/charge-safe-backend-1.0.0.jar --spring.profiles.active=prod
 | 现象 | 原因 | 解决 |
 |------|------|------|
 | `无效的目标发行版: --release` | Maven 未使用 JDK 21 | 设置 `JAVA_HOME` 与 PATH 为 JDK 21，再用 `mvn -version` 确认 |
-| `Port 8080 was already in use` | 端口被占用 | 修改 run-local.bat 顶部 `PORT=8082`，或命令行加 `-Dspring-boot.run.arguments=--server.port=8082` |
+| `Port 8080 was already in use` | 端口被占用 | 修改 `run-local.bat` 顶部 `PORT=8082`，或命令行加 `-Dspring-boot.run.arguments=--server.port=8082` |
 | MySQL 连接失败 | MySQL 未启动/库不存在/密码错 | 确认 MySQL 服务运行中，且已执行上方建库 SQL |
 | 依赖下载失败 | 网络/镜像配置 | 配置 Maven 阿里云镜像或检查代理 |
 
@@ -161,7 +162,7 @@ com.chargesafe
 - 基于 `sys_menu.permission_code`，由 `PermissionAspect` 在 Controller 方法执行前校验
 - 平台管理员权限码集合为 `null`，表示拥有全部权限
 - 越权访问返回 `403`（FORBIDDEN）
-- 居民自有接口（我的预约/我的订单/提交报修/充电/我的消息）不加管理权限码，保证小程序正常使用
+- 居民自有接口使用隐藏权限码（例如 `resident:dashboard:view`、`resident:repair:create`），不进入管理端菜单树
 
 权限码示例：`system:user:view`、`community:list:view`、`device:list:view`、`repair-ticket:view`、`statistics:analysis:view` 等，详见 `V3__add_menu_tables.sql`。
 

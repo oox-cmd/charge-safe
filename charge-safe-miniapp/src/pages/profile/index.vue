@@ -3,16 +3,14 @@
     <!-- 用户卡片 -->
     <view class="user-card">
       <view class="card-inner">
-        <view class="avatar-wrap" @click="changeAvatar">
+        <view class="avatar-wrap">
           <image v-if="userStore.avatar" :src="userStore.avatar" class="avatar-img" mode="aspectFill" />
           <view v-else class="avatar-knockout"><text class="avatar-letter">{{ initial }}</text></view>
-          <view class="avatar-cam">📷</view>
         </view>
         <view class="user-col">
           <text class="user-name">{{ userStore.nickname || '未设置昵称' }}</text>
           <text class="user-phone">{{ userStore.username || maskPhone(userStore.phone) }}</text>
         </view>
-        <view class="edit-tag" @click="goEditProfile"><text>编辑资料 ›</text></view>
       </view>
     </view>
 
@@ -43,14 +41,7 @@
       </view>
     </view>
 
-    <!-- 设置 -->
-    <view class="menu-card">
-      <view class="menu-item" @click="goSettings">
-        <view class="mi-icon" style="background:#f1f5f9;"><text>⚙️</text></view>
-        <text class="mi-label">设置</text>
-        <text class="mi-arrow">›</text>
-      </view>
-    </view>
+    <view class="service-note"><text>昵称、手机号、头像和密码目前由管理员账户统一维护。</text></view>
   </view>
 </template>
 
@@ -58,22 +49,14 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
-import { getUnreadCount } from '@/api/user'
-import { navigateTo, showToast, showLoading, hideLoading, maskPhone } from '@/utils'
+import { getUnreadNotificationCount } from '@/api/notification'
+import { navigateTo, maskPhone } from '@/utils'
 
 const userStore = useUserStore()
 const unread = ref(0)
 const initial = computed(() => (userStore.nickname || '?').charAt(0).toUpperCase())
 
-onShow(async () => { try { const res = await getUnreadCount(); if (res.code === 200 && res.data) unread.value = res.data.count } catch { /* */ } })
-
-function changeAvatar() {
-  uni.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'],
-    success: async (res) => { showLoading('上传中...'); try { const url = await userStore.uploadAvatar(res.tempFilePaths[0]); if (url) showToast('头像更新成功') } catch { showToast('上传失败') } finally { hideLoading() } }
-  })
-}
-function goEditProfile() { navigateTo('/pages/profile/edit-profile') }
-function goSettings() { navigateTo('/pages/profile/settings') }
+onShow(async () => { try { const res = await getUnreadNotificationCount(); if (res.code === 200 && res.data) unread.value = res.data.total || 0 } catch { /* */ } })
 function goOrder() { navigateTo('/pages/order/list') }
 function goReservation() { navigateTo('/pages/reservation/index') }
 function goRepair() { navigateTo('/pages/repair/list') }
@@ -89,11 +72,9 @@ function goNotification() { navigateTo('/pages/notification/list') }
 .avatar-img { width: 100%; height: 100%; border-radius: 50%; }
 .avatar-knockout { width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,.15); display: flex; align-items: center; justify-content: center; }
 .avatar-letter { font-size: 52rpx; font-weight: 700; color: #fff; }
-.avatar-cam { position: absolute; bottom: -4rpx; right: -4rpx; width: 44rpx; height: 44rpx; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,.15); }
 .user-col { flex: 1; margin-left: 26rpx; }
 .user-name { font-size: 38rpx; font-weight: 700; color: #fff; display: block; }
 .user-phone { font-size: 26rpx; color: rgba(255,255,255,.7); margin-top: 6rpx; display: block; }
-.edit-tag { padding: 12rpx 24rpx; background: rgba(255,255,255,.15); border-radius: 24rpx; border: 2rpx solid rgba(255,255,255,.25); font-size: 24rpx; color: #fff; }
 
 .menu-card { background: #fff; border-radius: 22rpx; margin: 20rpx 28rpx; box-shadow: 0 2rpx 12rpx rgba(30,58,138,.04); overflow: hidden; }
 .menu-item { display: flex; align-items: center; padding: 28rpx; border-bottom: 2rpx solid #f8fafc; }
@@ -104,4 +85,5 @@ function goNotification() { navigateTo('/pages/notification/list') }
 .mi-arrow { font-size: 32rpx; color: #cbd5e1; }
 .mi-right { display: flex; align-items: center; }
 .mi-badge { min-width: 36rpx; height: 36rpx; background: #ef4444; border-radius: 18rpx; display: flex; align-items: center; justify-content: center; padding: 0 8rpx; margin-right: 10rpx; font-size: 20rpx; color: #fff; font-weight: 700; }
+.service-note { margin: 20rpx 28rpx; padding: 22rpx; border-radius: 16rpx; background: #f8fafc; color: #64748b; font-size: 24rpx; line-height: 1.5; }
 </style>

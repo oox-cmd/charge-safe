@@ -1,56 +1,43 @@
 import * as THREE from 'three'
 import TWEEN from '@tweenjs/tween.js'
+import { getPortStatusStyle } from '../domain/sceneData.mjs'
 
 export class StationView {
   constructor(stationData) {
     this.group = new THREE.Group()
-    this.stationData = stationData
-    
-    // Platform
-    const planeGeo = new THREE.BoxGeometry(60, 2, 40)
-    const planeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b })
-    const plane = new THREE.Mesh(planeGeo, planeMat)
-    plane.position.y = -1
-    this.group.add(plane)
+    const ports = stationData?.ports || []
 
-    const ports = stationData.ports || []
-    
-    // Map status to color
-    const getStatusColor = (status) => {
-      switch (status) {
-        case 'IDLE': return 0x10b981 // Green
-        case 'CHARGING': return 0x3b82f6 // Blue
-        case 'FAULT': return 0xef4444 // Red
-        case 'OFFLINE': return 0x64748b // Gray
-        default: return 0xeab308 // Yellow (RESERVED)
-      }
-    }
+    const platform = new THREE.Mesh(
+      new THREE.BoxGeometry(60, 2, 40),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b })
+    )
+    platform.position.y = -1
+    this.group.add(platform)
 
-    // Layout ports in a grid
-    const cols = Math.ceil(Math.sqrt(ports.length))
-    const spacing = 6
-    
+    const columns = Math.max(1, Math.ceil(Math.sqrt(ports.length)))
+    const rows = Math.ceil(ports.length / columns)
     ports.forEach((port, index) => {
-      const row = Math.floor(index / cols)
-      const col = index % cols
-      
-      const x = (col - cols/2) * spacing + spacing/2
-      const z = (row - Math.ceil(ports.length/cols)/2) * spacing + spacing/2
-      
-      // Port Body
-      const bodyGeo = new THREE.BoxGeometry(2, 8, 2)
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155 })
-      const body = new THREE.Mesh(bodyGeo, bodyMat)
+      const row = Math.floor(index / columns)
+      const column = index % columns
+      const x = (column - (columns - 1) / 2) * 6
+      const z = (row - (rows - 1) / 2) * 6
+      const style = getPortStatusStyle(port.status)
+
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 8, 2),
+        new THREE.MeshStandardMaterial({ color: 0x334155 })
+      )
       body.position.set(x, 4, z)
+      body.userData = { id: port.id, deviceId: port.deviceId, status: port.status }
       this.group.add(body)
-      
-      // Status Indicator Light
-      const lightGeo = new THREE.SphereGeometry(0.5, 16, 16)
-      const lightColor = getStatusColor(port.status)
-      const lightMat = new THREE.MeshBasicMaterial({ color: lightColor })
-      const light = new THREE.Mesh(lightGeo, lightMat)
-      light.position.set(x, 8.5, z)
-      this.group.add(light)
+
+      const indicator = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6, 16, 16),
+        new THREE.MeshBasicMaterial({ color: style.color })
+      )
+      indicator.position.set(x, 8.5, z)
+      indicator.userData = body.userData
+      this.group.add(indicator)
     })
   }
 
@@ -60,18 +47,13 @@ export class StationView {
 
   initCamera(camera, controls) {
     new TWEEN.Tween(camera.position)
-      .to({ x: 0, y: 30, z: 60 }, 1000)
+      .to({ x: 0, y: 30, z: 60 }, 600)
       .easing(TWEEN.Easing.Cubic.Out)
       .start()
-      
     controls.target.set(0, 0, 0)
     controls.autoRotate = true
-    controls.autoRotateSpeed = 1.0
+    controls.autoRotateSpeed = 0.5
   }
 
-  update() {
-  }
-
-  dispose() {
-  }
+  dispose() {}
 }

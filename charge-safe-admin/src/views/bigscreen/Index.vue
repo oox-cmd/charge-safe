@@ -49,6 +49,11 @@
       </div>
     </header>
 
+    <p v-if="managementBigscreenData" class="simulation-disclaimer">
+      {{ managementBigscreenData.dataDisclaimer || '演示环境：数据来自业务数据库与设备模拟器，不代表真实硬件实时采集。' }}
+    </p>
+    <p v-if="dataError" class="data-error">{{ dataError }}</p>
+
     <!-- 主体区域：总览态势 -->
     <div class="bigscreen-body" v-show="activeTab === 'overview'">
       <!-- 左侧统计区 -->
@@ -75,7 +80,7 @@
           <div class="station-hologram">
             <div ref="stationLottieRef" class="station-lottie"></div>
             <div class="station-status">
-              <div class="status-item"><span class="label">运行状态</span><span class="value success">良好</span></div>
+              <div class="status-item"><span class="label">运行状态</span><span class="value demo-val">演示状态<span class="demo-mark">（非硬件实时）</span></span></div>
               <div class="status-item"><span class="label">当前负载</span><span class="value demo-val">42%<span class="demo-mark">（演示）</span></span></div>
               <div class="status-item"><span class="label">今日能耗</span><span class="value demo-val">124 kW·h<span class="demo-mark">（演示）</span></span></div>
             </div>
@@ -210,14 +215,14 @@
     <div class="bigscreen-body safety-view" v-show="activeTab === 'safety'">
       <aside class="bigscreen-left">
          <div class="panel">
-          <div class="panel-title"><span>告警分布</span><span class="badge demo">演示</span></div>
+          <div class="panel-title"><span>告警分布</span></div>
           <div class="metric-grid">
             <div class="metric-item danger">
-              <div class="metric-value">{{ alerts.length }}</div>
+              <div class="metric-value">{{ dashboardData?.faultPorts || 0 }}</div>
               <div class="metric-label">实时告警</div>
             </div>
             <div class="metric-item warning">
-              <div class="metric-value">{{ pendingHazards.length }}</div>
+              <div class="metric-value">{{ dashboardData?.pendingHazards || 0 }}</div>
               <div class="metric-label">待整改隐患</div>
             </div>
           </div>
@@ -235,20 +240,20 @@
         <div class="panel">
           <div class="panel-title">
             <span>实时告警日志</span>
-            <span class="badge demo">演示数据</span>
           </div>
           <div class="scroll-list alert-list">
             <div
               v-for="alert in alerts"
               :key="alert.id"
-              class="scroll-item item-danger"
+              class="scroll-item"
+              :class="alert.alarmLevel === 'ERROR' ? 'item-danger' : 'item-warning'"
             >
               <div class="item-header">
-                <span class="item-title">{{ alert.description }}</span>
-                <span class="item-time">{{ alert.createdTime }}</span>
+                <span class="item-title">{{ alert.alarmContent || alert.description }}</span>
+                <span class="item-time">{{ new Date(alert.createdTime).toLocaleString() }}</span>
               </div>
             </div>
-            <div class="empty-tip demo-tip" v-if="alerts.length === 0">暂无告警（当前为演示数据，未接入实时采集）</div>
+            <div class="empty-tip demo-tip" v-if="alerts.length === 0">暂无告警记录</div>
           </div>
         </div>
       </main>
@@ -257,14 +262,13 @@
         <div class="panel">
           <div class="panel-title">
             <span>待处理工单</span>
-            <span class="badge demo">演示数据</span>
           </div>
           <div class="scroll-list ticket-list">
             <div v-for="ticket in pendingTickets" :key="ticket.id" class="scroll-item">
               <div class="item-title">{{ ticket.faultDesc }}</div>
-              <div class="item-time">{{ ticket.createdTime }}</div>
+              <div class="item-time">{{ new Date(ticket.createdTime).toLocaleString() }}</div>
             </div>
-            <div class="empty-tip demo-tip" v-if="pendingTickets.length === 0">暂无待处理工单（当前为演示数据，未接入实时采集）</div>
+            <div class="empty-tip demo-tip" v-if="pendingTickets.length === 0">暂无待处理工单记录</div>
           </div>
         </div>
       </aside>
@@ -275,7 +279,9 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import lottie from 'lottie-web'
+// The light player intentionally excludes Lottie's expression evaluator, so
+// these local display-only animations do not ship a direct-eval capability.
+import lottie from 'lottie-web/build/player/esm/lottie_light.min.js'
 import stationAnimationData from '@/assets/lottie/station.json'
 import hudAnimationData from '@/assets/lottie/loading.json'
 import scooterAnimationData from '@/assets/lottie/scooter.json'
@@ -363,17 +369,11 @@ const handleLogout = () => {
 }
 const dashboardData = ref({})
 const managementBigscreenData = ref(null)
+const dataError = ref('')
 const parkingAreas = ref([])
-const alerts = ref([
-  { id: 1, description: 'A栋车棚 12号端口 温度过高', createdTime: '10分钟前', severity: 'URGENT' },
-  { id: 2, description: 'B栋车棚 3号端口 异常断电', createdTime: '30分钟前', severity: 'SERIOUS' }
-])
-const pendingTickets = ref([
-  { id: 1, faultDesc: 'C栋车棚主控板离线', createdTime: '2小时前' }
-])
-const pendingHazards = ref([
-  { id: 1, description: '消防器材过期', createdTime: '1天前', severity: 'SERIOUS' }
-])
+const alerts = ref([])
+const pendingTickets = ref([])
+const pendingHazards = ref([])
 
 const coreMetrics = ref([
   { label: '端口总数', value: 0, color: '#409eff' },
@@ -501,11 +501,29 @@ const fetchManagementData = async () => {
   try {
     const res = await getManagementBigscreen()
     if (res.code === 200) {
+      dataError.value = ''
       managementBigscreenData.value = res.data
       applyDashboardData(res.data?.dashboard)
       applyParkingAreaData(res.data?.parkingAreaUsage)
+
+      alerts.value = res.data?.alarms || []
+
+      // 待处理工单和待整改隐患暂时没有明细接口返回，先通过列表接口获取
+      try {
+        const { getRepairTickets } = await import('@/api/repair')
+        const ticketRes = await getRepairTickets({ status: 'PENDING', current: 1, size: 20 })
+        if (ticketRes.code === 200) pendingTickets.value = ticketRes.data.records
+      } catch(e) {}
+
+      try {
+        const { getHazards } = await import('@/api/inspection')
+        const hazardRes = await getHazards({ status: 'PENDING', current: 1, size: 20 })
+        if (hazardRes.code === 200) pendingHazards.value = hazardRes.data.records
+      } catch(e) {}
     }
-  } catch (error) {}
+  } catch (error) {
+    dataError.value = '大屏数据加载失败，请检查网络、登录状态和接口权限。'
+  }
 }
 
 const initCharts = () => {
@@ -659,6 +677,23 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(0, 242, 254, 0.2);
   z-index: 10;
 }
+
+.simulation-disclaimer, .data-error {
+  position: absolute;
+  z-index: 20;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(760px, 86vw);
+  padding: 7px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.simulation-disclaimer { color: #fde68a; background: rgba(120, 53, 15, .82); border: 1px solid rgba(245, 158, 11, .5); }
+.data-error { color: #fecaca; background: rgba(127, 29, 29, .88); border: 1px solid rgba(248, 113, 113, .6); }
 
 .header-left {
   display: flex;

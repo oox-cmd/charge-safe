@@ -1,57 +1,55 @@
 @echo off
-REM ============================================================
-REM ChargeSafe 后端本地启动脚本 (Windows)
-REM 使用前请确认：
-REM   1. MySQL 已启动，且已建库 charge_safe_dev / 用户 charge_safe_app
-REM   2. JAVA_HOME 指向 JDK 21（默认路径为本机常见安装位置，若不同请修改下方 SET JAVA_HOME）
-REM   3. 8080 端口未被占用（被占用可改下方 PORT 变量）
-REM ============================================================
+REM ChargeSafe local backend launcher for Windows.
+REM Uses JDK 21 and Maven found on PATH. Do not put secrets in this file.
 
-setlocal enabledelayedexpansion
+setlocal
+cd /d "%~dp0"
 
-REM === 可按需修改的配置 ===
 set "PORT=8080"
 set "PROFILE=local"
-set "MAVEN_PATH=C:\tools\apache-maven-3.9.8\bin\mvn.cmd"
 
-REM === JDK 路径（按实际安装位置修改，常见路径已列出，取消注释即可） ===
-set "JAVA_HOME=D:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot"
-
-REM === 校验 JAVA_HOME ===
-if not exist "%JAVA_HOME%\bin\java.exe" (
-    echo [ERROR] JAVA_HOME 不存在或不是有效 JDK: %JAVA_HOME%
-    echo 请用记事本打开本脚本，修改 JAVA_HOME 为你机器上 JDK 21 的实际安装路径。
-    pause
-    exit /b 1
+if "%CHARGE_SAFE_DB_USERNAME%"=="" (
+    echo [ERROR] CHARGE_SAFE_DB_USERNAME is not set.
+    goto :error
+)
+if "%CHARGE_SAFE_DB_PASSWORD%"=="" (
+    echo [ERROR] CHARGE_SAFE_DB_PASSWORD is not set.
+    goto :error
+)
+if "%JWT_SECRET%"=="" (
+    echo [ERROR] JWT_SECRET is not set.
+    goto :error
 )
 
-REM === 校验 Maven ===
-if not exist "%MAVEN_PATH%" (
-    echo [ERROR] Maven 不存在: %MAVEN_PATH%
-    echo 请修改脚本顶部 MAVEN_PATH 变量。
-    pause
-    exit /b 1
+where java >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] java was not found on PATH. Configure JDK 21 and try again.
+    goto :error
 )
-
-REM === 设置环境变量 ===
-set "PATH=%JAVA_HOME%\bin;%PATH%"
-set "MAVEN_OPTS=-Xmx1024m"
+where mvn >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] mvn was not found on PATH. Configure Maven and try again.
+    goto :error
+)
 
 echo ============================================================
-echo ChargeSafe 后端启动中...
-echo JAVA_HOME   = %JAVA_HOME%
-echo Maven       = %MAVEN_PATH%
+echo ChargeSafe backend starting...
 echo Profile     = %PROFILE%
 echo Port        = %PORT%
 echo ============================================================
+java -version
+mvn -version
 
-REM === 切换到脚本所在目录（即后端模块根目录） ===
-cd /d "%~dp0"
+mvn spring-boot:run -Dspring-boot.run.profiles=%PROFILE% -Dspring-boot.run.arguments=--server.port=%PORT%
+set "EXIT_CODE=%ERRORLEVEL%"
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo [ERROR] Backend process stopped with exit code: %EXIT_CODE%
+)
+exit /b %EXIT_CODE%
 
-REM === 启动 ===
-"%MAVEN_PATH%" spring-boot:run -Dspring-boot.run.profiles=%PROFILE% -Dspring-boot.run.arguments=--server.port=%PORT%
-
-REM === 如果进程结束，保留窗口查看错误 ===
+:error
 echo.
-echo 进程已结束。按任意键退出...
-pause
+echo Set database credentials and JWT_SECRET in the current shell first.
+echo Confirm that java -version and mvn -version use JDK 21.
+exit /b 1

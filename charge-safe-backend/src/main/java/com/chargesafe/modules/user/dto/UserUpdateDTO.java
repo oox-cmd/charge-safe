@@ -17,5 +17,7 @@ public class UserUpdateDTO {
 
     private Long communityId;
 
+    private Long deptId;
+
     private List<Long> roleIds;
 }

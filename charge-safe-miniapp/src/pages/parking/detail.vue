@@ -71,7 +71,12 @@ const statusMap = { 'IDLE': '空闲', 'RESERVED': '已预约', 'CHARGING': '充�
 
 function handlePort(port) { selectedPort.value = port; showModal.value = true }
 function handleReserve(port) { showModal.value = false; uni.navigateTo({ url: `/pages/reservation/confirm?portId=${port.id}&portName=${port.portName}` }) }
-function handleFault(port) { showModal.value = false; uni.navigateTo({ url: `/pages/repair/submit?device=${port.portName}` }) }
+function handleFault(port) {
+  showModal.value = false
+  uni.navigateTo({
+    url: `/pages/repair/submit?deviceId=${port.deviceId}&portId=${port.id}&portName=${encodeURIComponent(port.portName)}`
+  })
+}
 
 onLoad(async (options) => {
   const areaId = options.id
@@ -85,6 +90,7 @@ onLoad(async (options) => {
     if (res.code === 200 && Array.isArray(res.data)) {
       ports.value = res.data.map(p => ({
         id: p.id,
+        deviceId: p.deviceId,
         portName: p.portCode ?? p.portName ?? `${p.portNo ?? ''}号端口`,
         portNumber: p.portNo ?? p.portNumber,
         status: p.status,

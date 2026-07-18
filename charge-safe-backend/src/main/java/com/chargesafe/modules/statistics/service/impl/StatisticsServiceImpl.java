@@ -23,6 +23,8 @@ import com.chargesafe.modules.notification.mapper.NotificationMapper;
 import com.chargesafe.modules.repair.entity.RepairTicket;
 import com.chargesafe.modules.repair.enums.TicketStatus;
 import com.chargesafe.modules.repair.mapper.RepairTicketMapper;
+import com.chargesafe.modules.notification.mapper.AlarmRecordMapper;
+import com.chargesafe.modules.notification.entity.AlarmRecord;
 import com.chargesafe.modules.statistics.service.StatisticsService;
 import com.chargesafe.modules.statistics.vo.*;
 import com.chargesafe.security.UserContext;
@@ -55,6 +57,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final RepairTicketMapper ticketMapper;
     private final SafetyHazardMapper hazardMapper;
     private final NotificationMapper notificationMapper;
+    private final AlarmRecordMapper alarmRecordMapper;
 
     @Override
     public ManagementBigscreenVO getManagementBigscreen(Long communityId) {
@@ -64,6 +67,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         vo.setOrderTrend(getOrderTrend(communityId).getTrends());
         vo.setParkingAreaUsage(getParkingAreaUsage(communityId));
         vo.setAlarms(getAlarms(communityId));
+        vo.setCommunities(getSceneCommunities(communityId));
+        vo.setDataSource("SIMULATED_DATABASE");
+        vo.setDataDisclaimer("演示环境：数据来自业务数据库与设备模拟器，不代表真实硬件实时采集。");
         return vo;
     }
 
@@ -75,12 +81,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<Long> deviceIds = getDeviceIdsByCommunity(communityId);
 
         // 端口统计
-        LambdaQueryWrapper<ChargingPort> portWrapper = new LambdaQueryWrapper<>();
-        if (deviceIds != null && !deviceIds.isEmpty()) {
-            portWrapper.in(ChargingPort::getDeviceId, deviceIds);
-        }
-
-        List<ChargingPort> allPorts = portMapper.selectList(portWrapper);
+        List<ChargingPort> allPorts = getPortsByDeviceScope(deviceIds);
         vo.setTotalPorts((long) allPorts.size());
 
         vo.setIdlePorts(countByStatus(allPorts, PortStatus.IDLE.getCode()));
@@ -145,8 +146,11 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // 总数统计
         vo.setTotalCommunities(communityMapper.selectCount(null));
-        vo.setTotalParkingAreas(parkingAreaMapper.selectCount(null));
-        vo.setTotalDevices(deviceMapper.selectCount(null));
+        vo.setTotalParkingAreas(parkingAreaMapper.selectCount(
+                new LambdaQueryWrapper<ParkingArea>()
+                        .eq(communityId != null, ParkingArea::getCommunityId, communityId)
+        ));
+        vo.setTotalDevices(deviceIds == null ? deviceMapper.selectCount(null) : (long) deviceIds.size());
 
         return vo;
     }
@@ -155,12 +159,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     public PortStatusStatisticsVO getPortStatusStatistics(Long communityId) {
         List<Long> deviceIds = getDeviceIdsByCommunity(communityId);
 
-        LambdaQueryWrapper<ChargingPort> portWrapper = new LambdaQueryWrapper<>();
-        if (deviceIds != null && !deviceIds.isEmpty()) {
-            portWrapper.in(ChargingPort::getDeviceId, deviceIds);
-        }
-
-        List<ChargingPort> allPorts = portMapper.selectList(portWrapper);
+        List<ChargingPort> allPorts = getPortsByDeviceScope(deviceIds);
 
         // 按状态分组统计
         Map<String, Long> statusCountMap = allPorts.stream()
@@ -361,6 +360,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                     .collect(Collectors.toList());
 
             ParkingAreaUsageVO.ParkingAreaUsage usage = new ParkingAreaUsageVO.ParkingAreaUsage();
+            usage.setCommunityId(area.getCommunityId());
             usage.setId(area.getId());
             usage.setName(area.getName());
             usage.setPorts(sortedPorts);
@@ -407,6 +407,36 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .collect(Collectors.toList());
     }
 
+    private List<ChargingPort> getPortsByDeviceScope(List<Long> deviceIds) {
+        if (deviceIds == null) {
+            return portMapper.selectList(new LambdaQueryWrapper<>());
+        }
+        if (deviceIds.isEmpty()) {
+            return List.of();
+        }
+        return portMapper.selectList(
+                new LambdaQueryWrapper<ChargingPort>().in(ChargingPort::getDeviceId, deviceIds)
+        );
+    }
+
+    private List<CommunitySceneVO> getSceneCommunities(Long communityId) {
+        List<Community> communities = communityMapper.selectList(
+                new LambdaQueryWrapper<Community>()
+                        .eq(Community::getStatus, 1)
+                        .eq(communityId != null, Community::getId, communityId)
+                        .orderByAsc(Community::getId)
+        );
+
+        return communities.stream().map(community -> {
+            CommunitySceneVO scene = new CommunitySceneVO();
+            scene.setId(community.getId());
+            scene.setName(community.getName());
+            scene.setLat(community.getLat());
+            scene.setLng(community.getLng());
+            return scene;
+        }).toList();
+    }
+
     /**
      * 按状态计数
      */
@@ -421,25 +451,23 @@ public class StatisticsServiceImpl implements StatisticsService {
     private List<AlarmRecordVO> getAlarms(Long communityId) {
         List<AlarmRecordVO> alarms = new ArrayList<>();
 
-        // 1. 获取设备故障端口
-        List<Long> deviceIds = getDeviceIdsByCommunity(communityId);
-        if (deviceIds != null && !deviceIds.isEmpty()) {
-            List<ChargingPort> faultPorts = portMapper.selectList(
-                    new LambdaQueryWrapper<ChargingPort>()
-                            .in(ChargingPort::getDeviceId, deviceIds)
-                            .eq(ChargingPort::getStatus, PortStatus.FAULT.getCode())
-            );
-            for (ChargingPort port : faultPorts) {
-                AlarmRecordVO alarm = new AlarmRecordVO();
-                alarm.setId("FAULT-" + port.getId());
-                alarm.setDeviceId(port.getDeviceId());
-                alarm.setCommunityId(communityId); // 注意这里严格来说端口自身没有communityId字段，暂借参数或通过设备反推
-                alarm.setAlarmType("FAULT");
-                alarm.setAlarmContent(port.getPortName() + " 状态异常 (故障)");
-                alarm.setAlarmLevel("ERROR");
-                alarm.setCreatedTime(port.getUpdatedTime() != null ? port.getUpdatedTime() : LocalDateTime.now());
-                alarms.add(alarm);
-            }
+        // 1. 获取 alarm_record 表中的实际告警记录
+        List<AlarmRecord> realAlarms = alarmRecordMapper.selectList(
+                new LambdaQueryWrapper<AlarmRecord>()
+                        .eq(communityId != null, AlarmRecord::getCommunityId, communityId)
+                        .orderByDesc(AlarmRecord::getCreatedTime)
+                        .last("LIMIT 20")
+        );
+        for (AlarmRecord record : realAlarms) {
+            AlarmRecordVO alarm = new AlarmRecordVO();
+            alarm.setId("ALARM-" + record.getId());
+            alarm.setDeviceId(record.getDeviceId());
+            alarm.setCommunityId(record.getCommunityId());
+            alarm.setAlarmType(record.getAlarmType());
+            alarm.setAlarmContent(record.getAlarmContent());
+            alarm.setAlarmLevel(record.getAlarmLevel());
+            alarm.setCreatedTime(record.getCreatedTime() != null ? record.getCreatedTime() : LocalDateTime.now());
+            alarms.add(alarm);
         }
 
         // 2. 获取未闭环的安全隐患

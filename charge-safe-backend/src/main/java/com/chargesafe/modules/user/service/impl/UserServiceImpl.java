@@ -8,10 +8,12 @@ import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.ResultCode;
 import com.chargesafe.modules.user.dto.*;
+import com.chargesafe.modules.user.entity.SysDept;
 import com.chargesafe.modules.user.entity.SysRole;
 import com.chargesafe.modules.user.entity.SysUser;
 import com.chargesafe.modules.user.entity.SysUserRole;
 import com.chargesafe.modules.user.mapper.SysRoleMapper;
+import com.chargesafe.modules.user.mapper.SysDeptMapper;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
 import com.chargesafe.modules.user.mapper.SysUserRoleMapper;
 import com.chargesafe.modules.user.service.UserService;
@@ -37,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final SysRoleMapper roleMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final CommunityMapper communityMapper;
+    private final SysDeptMapper deptMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
@@ -71,6 +74,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserVO create(UserCreateDTO dto) {
         ensureUsernameUnique(dto.getUsername(), null);
+        ensureDepartmentAvailable(dto.getDeptId());
 
         SysUser user = new SysUser();
         BeanUtils.copyProperties(dto, user, "password", "roleIds");
@@ -85,6 +89,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserVO update(Long id, UserUpdateDTO dto) {
         SysUser user = getUserEntity(id);
+        ensureDepartmentAvailable(dto.getDeptId());
         BeanUtils.copyProperties(dto, user, "roleIds");
         userMapper.updateById(user);
         if (dto.getRoleIds() != null) {
@@ -196,6 +201,23 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        if (user.getDeptId() != null) {
+            SysDept dept = deptMapper.selectById(user.getDeptId());
+            if (dept != null) {
+                vo.setDeptName(dept.getName());
+            }
+        }
+
         return vo;
+    }
+
+    private void ensureDepartmentAvailable(Long deptId) {
+        if (deptId == null) {
+            return;
+        }
+        SysDept dept = deptMapper.selectById(deptId);
+        if (dept == null || !Integer.valueOf(1).equals(dept.getStatus())) {
+            throw new BusinessException("所属部门不存在或已停用");
+        }
     }
 }

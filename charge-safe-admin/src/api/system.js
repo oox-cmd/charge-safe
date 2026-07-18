@@ -89,3 +89,21 @@ export function updateMenu(id, data) {
 export function deleteMenu(id) {
   return request.delete(`/api/menus/${id}`)
 }
+
+// ==================== 部门管理 ====================
+
+export function getDepartments() {
+  return request.get('/api/system/depts')
+}
+
+export function createDepartment(data) {
+  return request.post('/api/system/depts', data)
+}
+
+export function updateDepartment(id, data) {
+  return request.put(`/api/system/depts/${id}`, data)
+}
+
+export function deleteDepartment(id) {
+  return request.delete(`/api/system/depts/${id}`)
+}

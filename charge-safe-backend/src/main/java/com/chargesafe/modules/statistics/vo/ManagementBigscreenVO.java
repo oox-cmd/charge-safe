@@ -12,4 +12,7 @@ public class ManagementBigscreenVO {
     private List<OrderTrendVO.DayTrend> orderTrend;
     private ParkingAreaUsageVO parkingAreaUsage;
     private List<AlarmRecordVO> alarms;
+    private List<CommunitySceneVO> communities;
+    private String dataSource;
+    private String dataDisclaimer;
 }

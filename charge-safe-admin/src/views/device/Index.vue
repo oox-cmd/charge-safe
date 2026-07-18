@@ -24,6 +24,7 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="deviceCode" label="设备编码" width="150" />
         <el-table-column prop="deviceName" label="设备名称" />
+        <el-table-column prop="categoryName" label="设备分类" min-width="150" />
         <el-table-column prop="parkingAreaName" label="所属车棚" />
         <el-table-column prop="portCount" label="端口数" width="100" />
         <el-table-column prop="status" label="状态" width="100" align="center">
@@ -72,8 +73,13 @@
         <el-form-item label="名称" prop="deviceName">
           <el-input v-model="form.deviceName" placeholder="请输入设备名称" />
         </el-form-item>
+        <el-form-item label="设备分类" prop="categoryId">
+          <el-select v-model="form.categoryId" placeholder="请选择已启用的设备分类" clearable style="width: 100%">
+            <el-option v-for="item in categories" :key="item.id" :label="`${item.name}（${item.power}）`" :value="item.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="类型" prop="deviceType">
-          <el-input v-model="form.deviceType" placeholder="请输入设备类型，例如：交流慢充桩、直流快充桩" />
+          <el-input v-model="form.deviceType" placeholder="请输入设备型号或补充说明（可选）" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -89,7 +95,7 @@ import { ref, reactive, onMounted } from 'vue'
 import CsPagination from '@/components/CsPagination.vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getDevices, createDevice, updateDevice, updateDeviceStatus } from '@/api/device'
+import { getDevices, createDevice, updateDevice, updateDeviceStatus, getDeviceCategories } from '@/api/device'
 import { getParkingAreaList } from '@/api/community'
 import CsPageHeader from '@/components/CsPageHeader.vue'
 import CsSearchPanel from '@/components/CsSearchPanel.vue'
@@ -105,6 +111,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref(null)
 const parkingAreas = ref([])
+const categories = ref([])
 
 const queryParams = reactive({
   page: 1,
@@ -117,7 +124,8 @@ const form = reactive({
   parkingAreaId: null,
   deviceCode: '',
   deviceName: '',
-  deviceType: ''
+  deviceType: '',
+  categoryId: null
 })
 
 const rules = {
@@ -134,6 +142,17 @@ const fetchParkingAreas = async () => {
     }
   } catch (error) {
     console.error('获取车棚列表失败:', error)
+  }
+}
+
+const fetchCategories = async () => {
+  try {
+    const res = await getDeviceCategories()
+    if (res.code === 200) {
+      categories.value = res.data.filter((item) => item.status === 1)
+    }
+  } catch (error) {
+    console.error('获取设备分类失败:', error)
   }
 }
 
@@ -165,6 +184,7 @@ const handleAdd = () => {
   form.deviceCode = ''
   form.deviceName = ''
   form.deviceType = ''
+  form.categoryId = null
   dialogVisible.value = true
 }
 
@@ -175,6 +195,7 @@ const handleEdit = (row) => {
   form.deviceCode = row.deviceCode
   form.deviceName = row.deviceName
   form.deviceType = row.deviceType
+  form.categoryId = row.categoryId
   dialogVisible.value = true
 }
 
@@ -222,6 +243,7 @@ const handleToggleStatus = async (row) => {
 
 onMounted(() => {
   fetchParkingAreas()
+  fetchCategories()
   fetchData()
 })
 </script>

@@ -30,7 +30,8 @@ export const permissionMenuItems = [
     icon: 'DataAnalysis',
     children: [
       { path: '/permission/statistics', title: '统计分析', icon: 'PieChart' },
-      { path: '/bigscreen', title: '可视化大屏', icon: 'FullScreen' }
+      { path: '/bigscreen', title: '可视化大屏', icon: 'FullScreen' },
+      { path: '/bigscreen3d', title: '三维管理大屏', icon: 'Platform' }
     ]
   }
 ]
@@ -88,7 +89,8 @@ export const opsMenuItems = [
     roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'],
     children: [
       { path: '/ops/statistics', title: '运维统计', icon: 'DataAnalysis', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] },
-      { path: '/bigscreen', title: '可视化大屏', icon: 'FullScreen', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] }
+      { path: '/bigscreen', title: '可视化大屏', icon: 'FullScreen', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] },
+      { path: '/bigscreen3d', title: '三维管理大屏', icon: 'Platform', roles: ['PLATFORM_ADMIN', 'PROPERTY_ADMIN'] }
     ]
   }
 ]

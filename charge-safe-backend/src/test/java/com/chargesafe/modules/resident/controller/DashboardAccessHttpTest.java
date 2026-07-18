@@ -2,6 +2,7 @@ package com.chargesafe.modules.resident.controller;
 
 import com.chargesafe.common.GlobalExceptionHandler;
 import com.chargesafe.modules.resident.service.ResidentDashboardService;
+import com.chargesafe.modules.resident.service.ResidentPortService;
 import com.chargesafe.modules.resident.vo.ResidentDashboardVO;
 import com.chargesafe.modules.statistics.controller.StatisticsController;
 import com.chargesafe.modules.statistics.service.StatisticsService;
@@ -45,6 +46,7 @@ class DashboardAccessHttpTest {
     private final AtomicReference<SysUser> user = new AtomicReference<>();
 
     private ResidentDashboardService residentDashboardService;
+    private ResidentPortService residentPortService;
     private StatisticsService statisticsService;
     private JwtUtils jwtUtils;
     private MockMvc mockMvc;
@@ -73,12 +75,13 @@ class DashboardAccessHttpTest {
                 jwtUtils, userMapper, menuService, new ObjectMapper());
 
         residentDashboardService = mock(ResidentDashboardService.class);
+        residentPortService = mock(ResidentPortService.class);
         statisticsService = mock(StatisticsService.class);
         when(residentDashboardService.getCurrentDashboard()).thenReturn(new ResidentDashboardVO());
         when(statisticsService.getManagementBigscreen(any())).thenReturn(new ManagementBigscreenVO());
 
         Object residentController = withPermissionAspect(
-                new ResidentDashboardController(residentDashboardService));
+                new ResidentDashboardController(residentDashboardService, residentPortService));
         Object statisticsController = withPermissionAspect(new StatisticsController(statisticsService));
         mockMvc = MockMvcBuilders.standaloneSetup(residentController, statisticsController)
                 .setControllerAdvice(new GlobalExceptionHandler())

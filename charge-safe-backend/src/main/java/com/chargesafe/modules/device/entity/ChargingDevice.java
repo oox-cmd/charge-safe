@@ -23,6 +23,8 @@ public class ChargingDevice {
 
     private String deviceType;
 
+    private Long categoryId;
+
     private Integer portCount;
 
     private Integer status;
@@ -38,4 +40,7 @@ public class ChargingDevice {
 
     @TableField(exist = false)
     private String parkingAreaName;
+
+    @TableField(exist = false)
+    private String categoryName;
 }

@@ -9,7 +9,7 @@ server:
 spring:
   datasource:
     url: jdbc:mysql://${CHARGE_SAFE_DB_HOST:127.0.0.1}:${CHARGE_SAFE_DB_PORT:3306}/${CHARGE_SAFE_DB_NAME:charge_safe}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${CHARGE_SAFE_DB_USERNAME:charge_safe_app}
+    username: ${CHARGE_SAFE_DB_USERNAME}
     password: ${CHARGE_SAFE_DB_PASSWORD}
   flyway:
     enabled: true

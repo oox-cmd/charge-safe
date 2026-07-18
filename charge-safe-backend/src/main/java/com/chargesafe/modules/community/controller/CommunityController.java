@@ -25,18 +25,21 @@ public class CommunityController {
     private final CommunityService communityService;
 
     @Operation(summary = "分页查询社区列表")
+    @RequiresPermission("community:list:view")
     @GetMapping
     public Result<PageResult<Community>> pageList(PageQuery pageQuery) {
         return Result.success(communityService.pageList(pageQuery));
     }
 
     @Operation(summary = "查询所有启用的社区")
+    @RequiresPermission("community:list:view")
     @GetMapping("/list")
     public Result<List<Community>> listAll() {
         return Result.success(communityService.listAll());
     }
 
     @Operation(summary = "根据ID查询社区")
+    @RequiresPermission("community:list:view")
     @GetMapping("/{id}")
     public Result<Community> getById(@PathVariable Long id) {
         return Result.success(communityService.getById(id));

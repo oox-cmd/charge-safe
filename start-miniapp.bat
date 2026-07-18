@@ -1,4 +1,4 @@
 @echo off
-cd /d "D:\system\Desktop\charge-safe-main(4)\charge-safe-miniapp"
-set "NODE_OPTIONS=--openssl-legacy-provider"
+setlocal
+cd /d "%~dp0charge-safe-miniapp"
 call npm run dev:h5

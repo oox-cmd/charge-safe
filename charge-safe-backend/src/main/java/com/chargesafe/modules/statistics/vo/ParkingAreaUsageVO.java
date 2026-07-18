@@ -21,6 +21,12 @@ public class ParkingAreaUsageVO {
      */
     @Data
     public static class ParkingAreaUsage {
+
+        /**
+         * 所属社区业务 ID，用于三级大屏从社区准确下钻至车棚。
+         */
+        private Long communityId;
+
         /**
          * 车棚ID
          */

@@ -1,14 +1,8 @@
 <template>
   <div class="department-container">
-    <CsPageHeader title="部门管理" description="维护平台组织架构和部门基础信息，当前用于权限端组织管理演示。" />
+    <CsPageHeader title="部门管理" description="维护平台组织架构和部门基础信息。" />
 
-    <el-alert
-      title="当前部门组织架构为前端演示数据，尚未接入真实部门管理接口。"
-      type="warning"
-      show-icon
-      :closable="false"
-      class="mock-alert"
-    />
+
 
     <el-row :gutter="20">
       <!-- 左侧部门树 -->
@@ -17,7 +11,7 @@
           <template #header>
             <div class="card-header">
               <span>部门组织架构</span>
-              <el-button type="primary" size="small" circle icon="Plus" @click="handleAddDept(null)" />
+              <el-button v-if="hasPermission('system:dept:create')" type="primary" size="small" circle icon="Plus" @click="handleAddDept(null)" />
             </div>
           </template>
           <el-input
@@ -41,15 +35,15 @@
               <span class="custom-tree-node">
                 <span>{{ node.label }}</span>
                 <span class="tree-node-actions">
-                  <el-button link type="primary" size="small" icon="Plus" @click.stop="handleAddDept(data)" />
-                  <el-button link type="primary" size="small" icon="Edit" @click.stop="handleEditDept(data)" />
+                  <el-button v-if="hasPermission('system:dept:create')" link type="primary" size="small" icon="Plus" @click.stop="handleAddDept(data)" />
+                  <el-button v-if="hasPermission('system:dept:edit')" link type="primary" size="small" icon="Edit" @click.stop="handleEditDept(data)" />
                   <el-button
                     link
                     type="danger"
                     size="small"
                     icon="Delete"
                     @click.stop="handleDeleteDept(data)"
-                    v-if="data.id !== 1"
+                    v-if="data.id !== 1 && hasPermission('system:dept:delete')"
                   />
                 </span>
               </span>
@@ -64,7 +58,7 @@
           <template #header>
             <div class="card-header">
               <span>{{ selectedNodeName }} - 下级部门</span>
-              <el-button type="primary" icon="Plus" @click="handleAddDept(selectedNode)">新增子部门</el-button>
+              <el-button v-if="hasPermission('system:dept:create')" type="primary" icon="Plus" @click="handleAddDept(selectedNode)">新增子部门</el-button>
             </div>
           </template>
 
@@ -84,8 +78,8 @@
             <el-table-column prop="createTime" label="创建时间" width="180" />
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" icon="Edit" @click="handleEditDept(row)">编辑</el-button>
-                <el-button link type="danger" icon="Delete" @click="handleDeleteDept(row)">删除</el-button>
+                <el-button v-if="hasPermission('system:dept:edit')" link type="primary" icon="Edit" @click="handleEditDept(row)">编辑</el-button>
+                <el-button v-if="row.id !== 1 && hasPermission('system:dept:delete')" link type="danger" icon="Delete" @click="handleDeleteDept(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -147,6 +141,10 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CsPageHeader from '@/components/CsPageHeader.vue'
+import { usePermission } from '@/composables/usePermission'
+
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '@/api/system'
+import { onMounted } from 'vue'
 
 const filterText = ref('')
 const treeRef = ref(null)
@@ -155,17 +153,26 @@ const dialogType = ref('add')
 const formRef = ref(null)
 
 const selectedNode = ref(null)
+const { hasPermission } = usePermission()
 
-// 初始模拟部门数据
-const departments = ref([
-  { id: 1, parentId: null, name: 'ChargeSafe集团', code: 'CS_GROUP', leader: '张健', phone: '18888888888', sort: 1, status: 1, createTime: '2026-07-01 10:00:00' },
-  { id: 2, parentId: 1, name: '系统研发部', code: 'DEPT_RD', leader: '金昊然', phone: '13900000001', sort: 1, status: 1, createTime: '2026-07-01 10:30:00' },
-  { id: 3, parentId: 1, name: '项目运营部', code: 'DEPT_OPS', leader: '吴诗颖', phone: '13900000002', sort: 2, status: 1, createTime: '2026-07-01 10:35:00' },
-  { id: 4, parentId: 1, name: '财务管理部', code: 'DEPT_FI', leader: '王小红', phone: '13900000003', sort: 3, status: 1, createTime: '2026-07-01 10:40:00' },
-  { id: 5, parentId: 3, name: '华北区域运营组', code: 'OPS_NORTH', leader: '李华', phone: '13910000001', sort: 1, status: 1, createTime: '2026-07-01 11:00:00' },
-  { id: 6, parentId: 3, name: '华东区域运营组', code: 'OPS_EAST', leader: '张明', phone: '13920000002', sort: 2, status: 1, createTime: '2026-07-01 11:05:00' },
-  { id: 7, parentId: 3, name: '华南区域运营组', code: 'OPS_SOUTH', leader: '赵磊', phone: '13930000003', sort: 3, status: 1, createTime: '2026-07-01 11:10:00' }
-])
+const departments = ref([])
+
+const loadDepartments = async () => {
+  try {
+    const res = await getDepartments()
+    if (res.code === 200) {
+      departments.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取部门列表失败')
+    }
+  } catch (error) {
+    console.error('Failed to load departments', error)
+  }
+}
+
+onMounted(() => {
+  loadDepartments()
+})
 
 const defaultProps = {
   children: 'children',
@@ -267,7 +274,7 @@ const handleDeleteDept = (row) => {
     type: 'warning',
     confirmButtonText: '确定',
     cancelButtonText: '取消'
-  }).then(() => {
+  }).then(async () => {
     // 检查是否有子部门
     const hasChildren = departments.value.some(d => d.parentId === row.id)
     if (hasChildren) {
@@ -275,10 +282,19 @@ const handleDeleteDept = (row) => {
       return
     }
     
-    departments.value = departments.value.filter(d => d.id !== row.id)
-    ElMessage.success('删除成功')
-    if (selectedNode.value?.id === row.id) {
-      selectedNode.value = null
+    try {
+      const res = await deleteDepartment(row.id)
+      if (res.code === 200) {
+        ElMessage.success('删除成功')
+        if (selectedNode.value?.id === row.id) {
+          selectedNode.value = null
+        }
+        loadDepartments()
+      } else {
+        ElMessage.error(res.message || '删除失败')
+      }
+    } catch (error) {
+      console.error(error)
     }
   }).catch(() => {})
 }
@@ -287,23 +303,29 @@ const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
 
-  if (dialogType.value === 'add') {
-    const newId = departments.value.length > 0 ? Math.max(...departments.value.map(d => d.id)) + 1 : 1
-    const newDept = {
-      ...form.value,
-      id: newId,
-      createTime: new Date().toISOString().replace('T', ' ').slice(0, 19)
+  try {
+    if (dialogType.value === 'add') {
+      const res = await createDepartment(form.value)
+      if (res.code === 200) {
+        ElMessage.success('新增部门成功')
+        dialogVisible.value = false
+        loadDepartments()
+      } else {
+        ElMessage.error(res.message || '新增失败')
+      }
+    } else {
+      const res = await updateDepartment(form.value.id, form.value)
+      if (res.code === 200) {
+        ElMessage.success('更新部门成功')
+        dialogVisible.value = false
+        loadDepartments()
+      } else {
+        ElMessage.error(res.message || '更新失败')
+      }
     }
-    departments.value.push(newDept)
-    ElMessage.success('新增部门成功')
-  } else {
-    const index = departments.value.findIndex(d => d.id === form.value.id)
-    if (index > -1) {
-      departments.value[index] = { ...form.value }
-      ElMessage.success('更新部门成功')
-    }
+  } catch (error) {
+    console.error(error)
   }
-  dialogVisible.value = false
 }
 </script>
 

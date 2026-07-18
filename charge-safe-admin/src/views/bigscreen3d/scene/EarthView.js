@@ -1,46 +1,38 @@
 import * as THREE from 'three'
 import ThreeGlobe from 'three-globe'
 import TWEEN from '@tweenjs/tween.js'
+import { buildCommunityMarkers } from '../domain/sceneData.mjs'
 
 export class EarthView {
-  constructor(onCommunityClick) {
+  constructor(communities, onCommunityClick) {
     this.group = new THREE.Group()
     this.onCommunityClick = onCommunityClick
-    
-    // Create globe
+    this.markerData = buildCommunityMarkers(communities)
+    this.hitMeshes = []
+
     this.globe = new ThreeGlobe()
-      .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-      .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
       .showAtmosphere(true)
-      .atmosphereColor('#3a228a')
-      .atmosphereAltitude(0.15)
-      
+      .atmosphereColor('#14b8a6')
+      .atmosphereAltitude(0.12)
+      .pointsData(this.markerData)
+      .pointColor('color')
+      .pointAltitude(() => 0.02)
+      .pointRadius(0.5)
+      .pointLabel((marker) => marker.name)
+
+    const material = this.globe.globeMaterial()
+    material.color.set('#0f2744')
+    material.emissive.set('#06101d')
+    material.shininess = 8
     this.group.add(this.globe)
 
-    // Add a single community marker (Mock location for MVP)
-    const markerData = [{
-      lat: 22.54,
-      lng: 114.05,
-      size: 1,
-      color: 'red',
-      id: 'community-1'
-    }]
-
-    this.globe
-      .pointsData(markerData)
-      .pointColor('color')
-      .pointAltitude('size')
-      .pointRadius(0.5)
-
-    // Custom invisible meshes for raycasting over points
-    this.hitMeshes = []
-    markerData.forEach(d => {
-      const pos = this.globe.getCoords(d.lat, d.lng, 0.1)
-      const geo = new THREE.SphereGeometry(2, 8, 8)
-      const mat = new THREE.MeshBasicMaterial({ visible: false })
-      const mesh = new THREE.Mesh(geo, mat)
-      mesh.position.set(pos.x, pos.y, pos.z)
-      mesh.userData = d
+    this.markerData.forEach((marker) => {
+      const position = this.globe.getCoords(marker.lat, marker.lng, 0.1)
+      const geometry = new THREE.SphereGeometry(2.5, 12, 12)
+      const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.position.set(position.x, position.y, position.z)
+      mesh.userData = marker
       this.group.add(mesh)
       this.hitMeshes.push(mesh)
     })
@@ -51,36 +43,21 @@ export class EarthView {
   }
 
   initCamera(camera, controls) {
-    // Animate camera to view the globe
     new TWEEN.Tween(camera.position)
-      .to({ x: 0, y: 0, z: 300 }, 2000)
+      .to({ x: 0, y: 0, z: 300 }, 800)
       .easing(TWEEN.Easing.Cubic.Out)
       .start()
-      
     controls.target.set(0, 0, 0)
     controls.autoRotate = true
-    controls.autoRotateSpeed = 0.5
-  }
-
-  update() {
-    // any per-frame updates
+    controls.autoRotateSpeed = 0.35
   }
 
   onClick(raycaster) {
     const intersects = raycaster.intersectObjects(this.hitMeshes)
-    if (intersects.length > 0) {
-      const data = intersects[0].object.userData
-      if (this.onCommunityClick) {
-        this.onCommunityClick(data)
-      }
-    }
+    if (intersects.length > 0) this.onCommunityClick?.(intersects[0].object.userData)
   }
 
   dispose() {
-    // clean up
-    this.hitMeshes.forEach(m => {
-      m.geometry.dispose()
-      m.material.dispose()
-    })
+    this.hitMeshes = []
   }
 }

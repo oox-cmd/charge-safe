@@ -25,6 +25,7 @@ public class PortController {
     private final PortService portService;
 
     @Operation(summary = "分页查询端口列表")
+    @RequiresPermission("port:view")
     @GetMapping
     public Result<PageResult<ChargingPort>> pageList(
             @RequestParam(required = false) Long deviceId,
@@ -34,24 +35,28 @@ public class PortController {
     }
 
     @Operation(summary = "查询设备下所有端口")
+    @RequiresPermission("port:view")
     @GetMapping("/list")
     public Result<List<ChargingPort>> listByDeviceId(@RequestParam Long deviceId) {
         return Result.success(portService.listByDeviceId(deviceId));
     }
 
     @Operation(summary = "查询车棚下所有端口")
+    @RequiresPermission("port:view")
     @GetMapping("/parking-area/{parkingAreaId}")
     public Result<List<ChargingPort>> listByParkingAreaId(@PathVariable Long parkingAreaId) {
         return Result.success(portService.listByParkingAreaId(parkingAreaId));
     }
 
     @Operation(summary = "查询空闲端口")
+    @RequiresPermission("port:view")
     @GetMapping("/idle/{parkingAreaId}")
     public Result<List<ChargingPort>> listIdlePorts(@PathVariable Long parkingAreaId) {
         return Result.success(portService.listIdlePorts(parkingAreaId));
     }
 
     @Operation(summary = "根据ID查询端口")
+    @RequiresPermission("port:view")
     @GetMapping("/{id}")
     public Result<ChargingPort> getById(@PathVariable Long id) {
         return Result.success(portService.getById(id));
@@ -82,6 +87,7 @@ public class PortController {
     }
 
     @Operation(summary = "统计各状态端口数量")
+    @RequiresPermission("port:view")
     @GetMapping("/statistics")
     public Result<Map<String, Long>> countByStatus(
             @RequestParam(required = false) Long communityId) {

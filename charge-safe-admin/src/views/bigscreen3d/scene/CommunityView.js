@@ -1,68 +1,42 @@
 import * as THREE from 'three'
 import TWEEN from '@tweenjs/tween.js'
 
+function stationPosition(index, total) {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(total)))
+  const row = Math.floor(index / columns)
+  const column = index % columns
+  return {
+    x: (column - (columns - 1) / 2) * 28,
+    z: (row - (Math.ceil(total / columns) - 1) / 2) * 24
+  }
+}
+
 export class CommunityView {
-  constructor(data, onStationClick) {
+  constructor(areas, onStationClick) {
     this.group = new THREE.Group()
     this.onStationClick = onStationClick
-    this.data = data || { areas: [] }
-    
-    // Create a simple ground plane
-    const planeGeo = new THREE.PlaneGeometry(200, 200)
-    const planeMat = new THREE.MeshStandardMaterial({ 
-      color: 0x112233, 
-      roughness: 0.8,
-      metalness: 0.2
-    })
-    const plane = new THREE.Mesh(planeGeo, planeMat)
-    plane.rotation.x = -Math.PI / 2
-    this.group.add(plane)
-
-    // Add some random decor buildings
-    this.addDecorBuildings()
-
     this.hitMeshes = []
-    
-    // Add parking areas as interactive boxes
-    const areas = this.data.areas || []
-    areas.forEach((area, index) => {
-      // Arrange in a circle
-      const angle = (index / areas.length) * Math.PI * 2
-      const radius = 50
-      const x = Math.cos(angle) * radius
-      const z = Math.sin(angle) * radius
+    const stations = Array.isArray(areas) ? areas : []
 
-      const boxGeo = new THREE.BoxGeometry(10, 5, 10)
-      const boxMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6 })
-      const box = new THREE.Mesh(boxGeo, boxMat)
-      box.position.set(x, 2.5, z)
-      
-      // Store data for raycasting
-      box.userData = area
-      
-      this.group.add(box)
-      this.hitMeshes.push(box)
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(180, 140),
+      new THREE.MeshStandardMaterial({ color: 0x102336, roughness: 0.9, metalness: 0.05 })
+    )
+    ground.rotation.x = -Math.PI / 2
+    this.group.add(ground)
 
-      // Add a simple label (using sprite or HTML overlay later)
+    stations.forEach((area, index) => {
+      const position = stationPosition(index, stations.length)
+      const color = area.faultPorts > 0 ? 0xef4444 : area.chargingPorts > 0 ? 0xf59e0b : 0x14b8a6
+      const station = new THREE.Mesh(
+        new THREE.BoxGeometry(16, 5, 12),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.2 })
+      )
+      station.position.set(position.x, 2.5, position.z)
+      station.userData = area
+      this.group.add(station)
+      this.hitMeshes.push(station)
     })
-  }
-
-  addDecorBuildings() {
-    const geo = new THREE.BoxGeometry(1, 1, 1)
-    const mat = new THREE.MeshStandardMaterial({ color: 0x1e293b })
-    
-    for (let i = 0; i < 20; i++) {
-      const mesh = new THREE.Mesh(geo, mat)
-      const x = (Math.random() - 0.5) * 180
-      const z = (Math.random() - 0.5) * 180
-      // avoid center ring
-      if (Math.abs(x) < 60 && Math.abs(z) < 60) continue
-      
-      const h = Math.random() * 20 + 5
-      mesh.scale.set(10, h, 10)
-      mesh.position.set(x, h/2, z)
-      this.group.add(mesh)
-    }
   }
 
   getGroup() {
@@ -70,31 +44,20 @@ export class CommunityView {
   }
 
   initCamera(camera, controls) {
-    // Animate camera to bird eye view
     new TWEEN.Tween(camera.position)
-      .to({ x: 0, y: 150, z: 150 }, 1500)
+      .to({ x: 0, y: 130, z: 130 }, 700)
       .easing(TWEEN.Easing.Cubic.Out)
       .start()
-      
     controls.target.set(0, 0, 0)
     controls.autoRotate = false
   }
 
-  update() {
-    // Animate logic
-  }
-
   onClick(raycaster) {
     const intersects = raycaster.intersectObjects(this.hitMeshes)
-    if (intersects.length > 0) {
-      const data = intersects[0].object.userData
-      if (this.onStationClick) {
-        this.onStationClick(data)
-      }
-    }
+    if (intersects.length > 0) this.onStationClick?.(intersects[0].object.userData)
   }
 
   dispose() {
-    // cleanup
+    this.hitMeshes = []
   }
 }

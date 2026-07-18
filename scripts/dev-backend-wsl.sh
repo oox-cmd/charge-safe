@@ -23,8 +23,14 @@ fi
 export CHARGE_SAFE_DB_HOST="${CHARGE_SAFE_DB_HOST:-${windows_host}}"
 export CHARGE_SAFE_DB_PORT="${CHARGE_SAFE_DB_PORT:-3306}"
 export CHARGE_SAFE_DB_NAME="${CHARGE_SAFE_DB_NAME:-charge_safe_dev}"
-export CHARGE_SAFE_DB_USERNAME="${CHARGE_SAFE_DB_USERNAME:-charge_safe_app}"
-export CHARGE_SAFE_DB_PASSWORD="${CHARGE_SAFE_DB_PASSWORD:-cugb666}"
+if [ -z "${CHARGE_SAFE_DB_USERNAME:-}" ]; then
+  echo "CHARGE_SAFE_DB_USERNAME must be set before starting the backend." >&2
+  exit 1
+fi
+if [ -z "${CHARGE_SAFE_DB_PASSWORD:-}" ]; then
+  echo "CHARGE_SAFE_DB_PASSWORD must be set before starting the backend." >&2
+  exit 1
+fi
 export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-local}"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

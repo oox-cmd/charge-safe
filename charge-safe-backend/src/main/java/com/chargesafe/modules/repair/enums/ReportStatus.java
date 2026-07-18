@@ -11,6 +11,9 @@ public enum ReportStatus {
     PENDING("PENDING", "待处理"),
     CONFIRMED("CONFIRMED", "已确认"),
     DISPATCHED("DISPATCHED", "已派单"),
+    PROCESSING("PROCESSING", "处理中"),
+    WAITING_ACCEPTANCE("WAITING_ACCEPTANCE", "待验收"),
+    FINISHED("FINISHED", "已完成"),
     REJECTED("REJECTED", "已驳回");
 
     private final String code;

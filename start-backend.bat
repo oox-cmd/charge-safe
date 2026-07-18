@@ -1,5 +1,16 @@
 @echo off
-set "JAVA_HOME=D:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot"
-set "PATH=%JAVA_HOME%\bin;%PATH%"
-cd /d "D:\system\Desktop\charge-safe-main(4)\charge-safe-backend"
-"C:\tools\apache-maven-3.9.8\bin\mvn.cmd" spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--server.port=8080
+setlocal
+if not defined JWT_SECRET (
+  echo 请先设置 JWT_SECRET 后再启动后端。
+  exit /b 1
+)
+if not defined CHARGE_SAFE_DB_USERNAME (
+  echo 请先设置 CHARGE_SAFE_DB_USERNAME 后再启动后端。
+  exit /b 1
+)
+if not defined CHARGE_SAFE_DB_PASSWORD (
+  echo 请先设置 CHARGE_SAFE_DB_PASSWORD 后再启动后端。
+  exit /b 1
+)
+cd /d "%~dp0charge-safe-backend"
+mvn spring-boot:run -Dspring-boot.run.profiles=local

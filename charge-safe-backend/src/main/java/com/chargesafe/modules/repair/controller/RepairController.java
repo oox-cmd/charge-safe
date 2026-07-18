@@ -29,13 +29,30 @@ public class RepairController {
 
     @Operation(summary = "提交报修")
     @OperationLog(module = "报修管理", description = "提交报修", type = "CREATE")
-    @RequiresPermission("repair-report:view")
-    @PostMapping("/repair-reports")
+    @RequiresPermission("resident:repair:create")
+    @PostMapping("/resident/repair-reports")
     public Result<RepairReport> createReport(@Valid @RequestBody RepairReportDTO dto) {
         return Result.success(repairService.createReport(dto));
     }
 
+    @Operation(summary = "分页查询当前居民的报修记录")
+    @RequiresPermission("resident:repair:view")
+    @GetMapping("/resident/repair-reports")
+    public Result<PageResult<RepairReport>> pageMyReports(
+            @RequestParam(required = false) String status,
+            PageQuery pageQuery) {
+        return Result.success(repairService.pageMyReports(status, pageQuery));
+    }
+
+    @Operation(summary = "查询当前居民的报修记录")
+    @RequiresPermission("resident:repair:view")
+    @GetMapping("/resident/repair-reports/{id}")
+    public Result<RepairReport> getMyReportById(@PathVariable Long id) {
+        return Result.success(repairService.getMyReportById(id));
+    }
+
     @Operation(summary = "分页查询报修记录")
+    @RequiresPermission("repair-report:view")
     @GetMapping("/repair-reports")
     public Result<PageResult<RepairReport>> pageReports(
             @RequestParam(required = false) Long communityId,
@@ -45,6 +62,7 @@ public class RepairController {
     }
 
     @Operation(summary = "根据ID查询报修记录")
+    @RequiresPermission("repair-report:view")
     @GetMapping("/repair-reports/{id}")
     public Result<RepairReport> getReportById(@PathVariable Long id) {
         return Result.success(repairService.getReportById(id));
@@ -70,6 +88,7 @@ public class RepairController {
     }
 
     @Operation(summary = "运维人员开始处理")
+    @RequiresPermission("repair-ticket:view")
     @PostMapping("/repair-tickets/{id}/start")
     public Result<Void> startTicket(@PathVariable Long id) {
         repairService.startTicket(id);
@@ -111,6 +130,7 @@ public class RepairController {
     }
 
     @Operation(summary = "分页查询工单")
+    @RequiresPermission("repair-ticket:view")
     @GetMapping("/repair-tickets")
     public Result<PageResult<RepairTicket>> pageTickets(
             @RequestParam(required = false) Long assigneeId,
@@ -120,6 +140,7 @@ public class RepairController {
     }
 
     @Operation(summary = "根据ID查询工单")
+    @RequiresPermission("repair-ticket:view")
     @GetMapping("/repair-tickets/{id}")
     public Result<RepairTicket> getTicketById(@PathVariable Long id) {
         return Result.success(repairService.getTicketById(id));

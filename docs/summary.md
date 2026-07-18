@@ -1,7 +1,23 @@
 # ChargeSafe 社区充电安全运维平台 — 项目技术文档
 
 > 《面向社区场景的电动自行车充电停放与安全运维管理系统设计与实现》
-> 当前版本：v0.2.0
+> 当前版本：v0.3.0（中期开发状态）
+>
+> 最后同步：2026-07-18。源码、运行配置、Flyway 迁移和新鲜测试结果优先于本文的历史过程记录；本机 Windows MySQL `local` Profile 已完成 Flyway、核心只读 HTTP 冒烟以及两条状态写入联调，但项目仍处于中期开发，不能表述为最终交付。
+
+> 文档分工：启动与环境见 [`../README.md`](../README.md)，开发约束见 [`development-guide.md`](development-guide.md)，未完成事项见 [`current-backlog.md`](current-backlog.md)，历史材料见 [`archive/`](archive/)。
+
+## 当前状态（2026-07-18）
+
+| 主题 | 当前事实 | 验证边界 |
+| --- | --- | --- |
+| 数据库迁移 | 正式迁移为 V1–V7；已发布 V1–V5 不可修改，V7 新增部门、设备分类、关联字段和权限数据 | 2026-07-18 本机 MySQL `charge_safe_dev` 已确认 V1–V7 全部成功 |
+| 部门与设备分类 | 后端 CRUD 已接入；服务端校验名称/编码/状态，禁止部门循环、删除含子部门/绑定用户的部门，以及删除仍被设备引用的分类 | `ReferenceDataIntegrityServiceTest` 覆盖引用完整性和循环关系 |
+| 管理端 | 部门与设备分类页面使用真实 API、精确按钮权限；分类字段统一为 `description` | 管理端生产构建通过 |
+| 居民小程序 | 预约、充电、订单、报修和通知接真实 API；Mock 只允许开发环境显式开启，并有醒目标识 | H5/微信小程序构建通过；本机已验证 H5 登录、订单列表和报修完成展示，真机仍待验收 |
+| 大屏 | 2D 页保留数据来源声明；3D 页按真实 `communityId`、`stationId`、`deviceId`、`portId` 渲染，合成数据不得伪装为实时数据 | 管理端单测和生产构建通过；本机已验证物业统计/大屏数据接口，浏览器渲染仍待验收 |
+| 告警 | `alarm_record` 已有 Entity/Mapper/Service，模拟器故障会写入明确标识的模拟告警；统计大屏读取该表 | 真实硬件告警采集尚不在项目范围 |
+| 构建 | 后端 JDK 21 `mvn clean package`（89/89 测试）、管理端/小程序构建均已通过 | 本机已完成 MySQL/Flyway、登录及七类只读接口冒烟；预约充电与报修验收闭环已做真实 HTTP 联调，仍需补浏览器端端到端与真实硬件/支付链路 |
 
 ## 一、技术架构
 
@@ -111,17 +127,21 @@ com.chargesafe
 
 ### 2.1 数据库表清单
 
-共 **19 张核心表**，采用 InnoDB + utf8mb4，支持逻辑删除和多社区数据隔离。
+当前迁移定义共 **25 张核心表**（V1 的 21 张、V3 的 2 张 RBAC 表、V7 的部门和设备分类表），采用 InnoDB + utf8mb4，支持逻辑删除和多社区数据隔离。
 
 | 线路 | 表名 | 说明 | 核心字段 |
 |------|------|------|---------|
-| 用户权限 | sys_user | 用户表 | id, username, password, community_id |
+| 用户权限 | sys_dept | 部门表 | id, parent_id, name, code |
+| 用户权限 | sys_user | 用户表 | id, username, password, community_id, dept_id |
 | 用户权限 | sys_role | 角色表 | id, role_name, role_code |
 | 用户权限 | sys_user_role | 用户角色关联 | user_id, role_id |
+| 用户权限 | sys_menu | 菜单/权限表 | id, parent_id, permission_code |
+| 用户权限 | sys_role_menu | 角色菜单关联 | role_id, menu_id |
 | 用户权限 | operation_log | 操作日志 | user_id, module, operation, duration |
 | 社区资源 | community | 社区表 | id, name, address |
 | 社区资源 | parking_area | 车棚表 | id, community_id, name |
-| 社区资源 | charging_device | 充电设备表 | id, parking_area_id, device_code |
+| 社区资源 | device_category | 设备分类表 | id, name, code, power |
+| 社区资源 | charging_device | 充电设备表 | id, parking_area_id, category_id, device_code |
 | 社区资源 | charging_port | 充电端口表 | id, device_id, status |
 | 居民车辆 | resident_profile | 居民档案 | user_id, community_id, building |
 | 居民车辆 | vehicle | 车辆表 | user_id, plate_number |
@@ -134,7 +154,7 @@ com.chargesafe
 | 巡检隐患 | inspection_record | 巡检记录 | task_id, check_item, check_result |
 | 巡检隐患 | safety_hazard | 安全隐患 | community_id, hazard_type, severity, status |
 | 消息统计 | notification | 消息通知 | user_id, type, is_read |
-| 消息统计 | alarm_record | 告警记录 | device_id, alarm_type, status |
+| 消息统计 | alarm_record | 告警记录（模拟器写入、统计大屏读取） | device_id, alarm_type, status |
 | 消息统计 | charging_fee_rule | 费率规则 | community_id, fee_per_hour |
 
 ### 2.2 ER 关系图
@@ -144,6 +164,7 @@ com.chargesafe
 │ sys_user │────<│sys_user_role│>────│ sys_role │
 └────┬─────┘     └─────────────┘     └─────────┘
      │
+     ├──N:1── sys_dept
      ├──1:1── resident_profile ──N:1── community
      ├──1:N── vehicle
      ├──1:N── charging_reservation ──N:1── charging_port
@@ -154,6 +175,8 @@ com.chargesafe
 ┌─────────┐     ┌─────────────┐     ┌─────────────────┐     ┌───────────────┐
 │community │────<│ parking_area│────<│ charging_device │────<│ charging_port │
 └─────────┘     └─────────────┘     └─────────────────┘     └───────────────┘
+                                            │
+                                            └──N:1── device_category
 
 ┌────────────────┐     ┌──────────────────┐
 │inspection_task │────<│inspection_record │
@@ -172,6 +195,8 @@ com.chargesafe
 | IDLE | 空闲 | RESERVED, FAULT, DISABLED, OFFLINE |
 | RESERVED | 已预约 | CHARGING, IDLE(超时取消) |
 | CHARGING | 充电中 | IDLE(结束充电) |
+| COMPLETED_WAITING_PICKUP | 充电完成待取车 | IDLE |
+| OVERTIME_OCCUPIED | 超时占位 | IDLE |
 | FAULT | 故障 | MAINTENANCE |
 | MAINTENANCE | 维修中 | IDLE |
 | DISABLED | 停用 | IDLE |
@@ -187,6 +212,16 @@ com.chargesafe
 | FINISHED | 已完成 | CLOSED |
 | CLOSED | 已关闭 | - |
 | REJECTED | 已驳回 | DISPATCHED |
+
+**居民报修状态 (repair_report.status)**
+| 状态 | 含义 |
+|------|------|
+| PENDING | 待受理 |
+| DISPATCHED | 已派单 |
+| PROCESSING | 处理中 |
+| WAITING_ACCEPTANCE | 待验收 |
+| FINISHED | 已完成 |
+| REJECTED | 已驳回 |
 
 **安全隐患状态 (safety_hazard.status)**
 | 状态 | 含义 | 可流转到 |
@@ -215,11 +250,14 @@ com.chargesafe
 | 社区 | `/api/communities` | 5 | CRUD + 启停 |
 | 车棚 | `/api/parking-areas` | 5 | CRUD + 列表 |
 | 设备 | `/api/devices` | 5 | CRUD + 启停 |
+| 设备分类 | `/api/devices/categories` | 4 | 列表、创建、更新、删除（删除时校验设备引用） |
+| 部门 | `/api/system/depts` | 4 | 列表、创建、更新、删除（维护树与用户引用完整性） |
 | 端口 | `/api/ports` | 8 | CRUD + 批量创建 + 统计 |
 | 预约 | `/api/reservations` | 4 | 创建、取消、查询 |
 | 充电 | `/api/charging` | 2 | 开始、结束 |
 | 订单 | `/api/orders` | 3 | 列表、详情 |
-| 报修 | `/api/repair-reports` | 3 | 创建、列表、详情 |
+| 报修（管理） | `/api/repair-reports` | 2 | 社区范围列表、详情 |
+| 报修（居民） | `/api/resident/repair-reports` | 3 | 本人创建、列表、详情 |
 | 工单 | `/api/repair-tickets` | 8 | 派单、接单、完成、验收等 |
 | 巡检 | `/api/inspection-tasks` | 7 | 创建、开始、提交、完成 |
 | 隐患 | `/api/hazards` | 6 | 上报、整改、复查、关闭 |
@@ -228,7 +266,7 @@ com.chargesafe
 | 模拟 | `/api/simulator` | 4 | 端口状态变更、故障模拟 |
 | 日志 | `/api/logs` | 2 | 列表、详情 |
 
-**共计：61 个 RESTful 接口**
+> 接口数量会随版本演进，不以本文的汇总数字作为运行契约；精确路径、参数和权限以各 Controller 的方法签名与 OpenAPI 文档为准。
 
 ## 四、核心业务流程
 
@@ -282,7 +320,7 @@ com.chargesafe
                                           │
                                           ▼
                                     物业验收
-                                    ├── 通过 → 工单关闭 → 端口恢复IDLE
+                                    ├── 通过 → 报修单→FINISHED、工单关闭、端口恢复IDLE
                                     └── 驳回 → 重新派单
 ```
 

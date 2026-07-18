@@ -46,6 +46,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="communityName" label="所属社区" show-overflow-tooltip />
+        <el-table-column prop="deptName" label="所属部门" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -117,6 +118,11 @@
             <el-option v-for="item in communityList" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="所属部门" prop="deptId">
+          <el-select v-model="form.deptId" placeholder="请选择部门（可选）" clearable filterable style="width: 100%">
+            <el-option v-for="item in departmentList" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -153,7 +159,7 @@ import {
   updateUserStatus, assignUserRoles, resetUserPassword
 } from '@/api/system'
 import { getCommunityList } from '@/api/community'
-import { getRoleList } from '@/api/system'
+import { getRoleList, getDepartments } from '@/api/system'
 import { usePermission } from '@/composables/usePermission'
 import CsPageHeader from '@/components/CsPageHeader.vue'
 import CsSearchPanel from '@/components/CsSearchPanel.vue'
@@ -170,6 +176,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref(null)
 const communityList = ref([])
+const departmentList = ref([])
 const roleList = ref([])
 
 // 角色分配
@@ -192,7 +199,8 @@ const form = reactive({
   password: '',
   nickname: '',
   phone: '',
-  communityId: null
+  communityId: null,
+  deptId: null
 })
 
 const rules = {
@@ -237,6 +245,17 @@ const fetchRoleList = async () => {
   }
 }
 
+const fetchDepartmentList = async () => {
+  try {
+    const res = await getDepartments()
+    if (res.code === 200) {
+      departmentList.value = res.data.filter((item) => item.status === 1)
+    }
+  } catch (error) {
+    console.error('获取部门列表失败:', error)
+  }
+}
+
 const resetQuery = () => {
   queryParams.username = ''
   queryParams.phone = ''
@@ -254,6 +273,7 @@ const handleAdd = () => {
   form.nickname = ''
   form.phone = ''
   form.communityId = null
+  form.deptId = null
   dialogVisible.value = true
 }
 
@@ -265,6 +285,7 @@ const handleEdit = (row) => {
   form.nickname = row.nickname
   form.phone = row.phone
   form.communityId = row.communityId
+  form.deptId = row.deptId
   dialogVisible.value = true
 }
 
@@ -349,6 +370,7 @@ onMounted(() => {
   fetchData()
   fetchCommunityList()
   fetchRoleList()
+  fetchDepartmentList()
 })
 </script>
 

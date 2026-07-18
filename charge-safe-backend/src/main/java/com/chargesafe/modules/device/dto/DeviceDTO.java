@@ -22,4 +22,6 @@ public class DeviceDTO {
     private String deviceName;
 
     private String deviceType;
+
+    private Long categoryId;
 }

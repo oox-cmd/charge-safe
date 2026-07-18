@@ -29,6 +29,8 @@ public class SysUser {
 
     private Long communityId;
 
+    private Long deptId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdTime;
 
@@ -43,4 +45,7 @@ public class SysUser {
 
     @TableField(exist = false)
     private String communityName;
+
+    @TableField(exist = false)
+    private String deptName;
 }

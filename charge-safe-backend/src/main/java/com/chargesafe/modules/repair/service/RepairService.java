@@ -20,10 +20,16 @@ public interface RepairService {
      */
     PageResult<RepairReport> pageReports(Long communityId, String status, PageQuery pageQuery);
 
+    /** 分页查询当前居民本人提交的报修记录。 */
+    PageResult<RepairReport> pageMyReports(String status, PageQuery pageQuery);
+
     /**
      * 根据ID查询报修记录
      */
     RepairReport getReportById(Long id);
+
+    /** 查询当前居民本人提交的单条报修记录。 */
+    RepairReport getMyReportById(Long id);
 
     /**
      * 派发工单

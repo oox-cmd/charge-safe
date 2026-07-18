@@ -23,6 +23,8 @@ public class UserVO {
 
     private Long communityId;
 
+    private Long deptId;
+
     private LocalDateTime createdTime;
 
     private List<Long> roleIds;
@@ -37,4 +39,6 @@ public class UserVO {
     }
 
     private String communityName;
+
+    private String deptName;
 }

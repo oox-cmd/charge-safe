@@ -61,3 +61,21 @@ export function updatePortStatus(id, status) {
 export function getPortStatistics(communityId) {
   return request.get('/api/ports/statistics', { params: { communityId } })
 }
+
+// ==================== 设备分类管理 ====================
+
+export function getDeviceCategories() {
+  return request.get('/api/devices/categories')
+}
+
+export function createDeviceCategory(data) {
+  return request.post('/api/devices/categories', data)
+}
+
+export function updateDeviceCategory(id, data) {
+  return request.put(`/api/devices/categories/${id}`, data)
+}
+
+export function deleteDeviceCategory(id) {
+  return request.delete(`/api/devices/categories/${id}`)
+}

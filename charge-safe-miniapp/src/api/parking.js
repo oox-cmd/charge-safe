@@ -10,10 +10,5 @@ export function getResidentDashboard() {
 
 /** 按车棚 ID 获取端口明细列表 */
 export function listPortsByParkingArea(parkingAreaId) {
-  return request({ url: `/api/ports/parking-area/${parkingAreaId}`, method: 'GET' })
-}
-
-/** 按车棚 ID 获取空闲端口列表 */
-export function listIdlePorts(parkingAreaId) {
-  return request({ url: `/api/ports/idle/${parkingAreaId}`, method: 'GET' })
+  return request({ url: `/api/resident/parking-areas/${parkingAreaId}/ports`, method: 'GET' })
 }

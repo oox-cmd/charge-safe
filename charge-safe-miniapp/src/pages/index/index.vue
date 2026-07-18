@@ -15,11 +15,10 @@
           <view class="bell-badge" v-if="unreadCount > 0"><text>{{ unreadCount > 99 ? '99+' : unreadCount }}</text></view>
         </view>
       </view>
-      <!-- 小区选择 -->
-      <view class="location-bar" @click="showPicker = true">
+      <view class="location-bar">
         <text class="loc-dot">📍</text>
-        <text class="loc-name">{{ userStore.communityName || '点击选择小区' }}</text>
-        <text class="loc-switch">切换 ›</text>
+        <text class="loc-name">{{ assignedCommunityName || '未绑定社区' }}</text>
+        <text class="loc-switch">账号所属社区</text>
       </view>
     </view>
 
@@ -72,61 +71,38 @@
       <view class="empty-block" v-if="recentOrders.length === 0"><text>暂无订单记录</text></view>
     </view>
 
-    <!-- ===== 小区选择弹窗 ===== -->
-    <view class="mask" v-if="showPicker" @click="showPicker = false">
-      <view class="sheet" @click.stop>
-        <view class="sheet-head"><text class="sheet-title">选择小区</text><text class="sheet-close" @click="showPicker = false">✕</text></view>
-        <view class="search-row">
-          <text class="search-icon">🔍</text>
-          <input v-model="searchText" class="search-input" placeholder="搜索小区名称" placeholder-style="color:#c0c4cc" @input="filterCommunities" />
-          <view class="locate-tag" @click="autoLocate">📍 定位</view>
-        </view>
-        <scroll-view class="sheet-list" scroll-y>
-          <view v-for="item in filteredList" :key="item.id" :class="['sheet-item', { on: userStore.communityId === item.id }]" @click="selectCommunity(item)">
-            <view class="sheet-info"><text class="sheet-name">{{ item.name }}</text><text class="sheet-addr">{{ item.address }}</text></view>
-            <view class="sheet-extra"><text class="sheet-ports">🟢 {{ item.idlePorts }} 空闲</text><text class="sheet-check" v-if="userStore.communityId === item.id">✓</text></view>
-          </view>
-          <view class="sheet-empty" v-if="filteredList.length === 0"><text>未找到匹配小区</text></view>
-        </scroll-view>
-      </view>
-    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { getAllCommunities, getNearestCommunity } from '@/api/community'
-import { getUnreadCount } from '@/api/user'
+import { getResidentDashboard } from '@/api/parking'
+import { getUnreadNotificationCount } from '@/api/notification'
 import { pageMyOrders } from '@/api/order'
 
 const userStore = useUserStore()
-const unreadCount = ref(0); const showPicker = ref(false); const searchText = ref(''); const communityList = ref([])
+const unreadCount = ref(0)
+const assignedCommunityName = ref('')
 const recentOrders = ref([])
 const statusMap = { 'CHARGING': '充电中', 'COMPLETED': '已完成', 'SETTLED': '已结算' }
 const greeting = computed(() => { const h = new Date().getHours(); return h < 6 ? '夜深了 🌙' : h < 12 ? '早上好 ☀️' : h < 18 ? '下午好 🌤️' : '晚上好 🌙' })
-const filteredList = computed(() => { if (!searchText.value) return communityList.value; const kw = searchText.value.toLowerCase(); return communityList.value.filter(c => c.name.toLowerCase().includes(kw) || c.address.toLowerCase().includes(kw)) })
 
 onMounted(async () => {
-  try { const res = await getAllCommunities(); if (res.code === 200 && res.data) communityList.value = res.data } catch { /* */ }
-  if (!userStore.communityId) await autoLocate()
-  try { const res = await getUnreadCount(); if (res.code === 200 && res.data) unreadCount.value = res.data.count } catch { /* */ }
+  try { const res = await getResidentDashboard(); if (res.code === 200 && res.data) assignedCommunityName.value = res.data.communityName || '' } catch { /* */ }
+  try { const res = await getUnreadNotificationCount(); if (res.code === 200 && res.data) unreadCount.value = res.data.total || 0 } catch { /* */ }
   try {
     const res = await pageMyOrders({ page: 1, size: 3 })
     if (res.code === 200 && res.data?.records) recentOrders.value = res.data.records
   } catch { /* */ }
 })
 
-async function autoLocate() {
-  try { const pos = await new Promise((resolve, reject) => { uni.getLocation({ type: 'gcj02', success: resolve, fail: reject }) }); const res = await getNearestCommunity(pos.latitude, pos.longitude); if (res.code === 200 && res.data) userStore.setCommunity(res.data.id, res.data.name) } catch { if (!userStore.communityId && communityList.value.length > 0) { const f = communityList.value[0]; userStore.setCommunity(f.id, f.name) } }
-}
-function selectCommunity(item) { userStore.setCommunity(item.id, item.name); showPicker.value = false; searchText.value = '' }
 const goParking = () => uni.navigateTo({ url: '/pages/parking/index' })
 const goReservation = () => uni.navigateTo({ url: '/pages/reservation/index' })
 const goOrder = () => uni.navigateTo({ url: '/pages/order/list' })
 const goRepair = () => uni.navigateTo({ url: '/pages/repair/list' })
 const goNotification = () => uni.navigateTo({ url: '/pages/notification/list' })
-const goScan = () => { uni.scanCode({ success: (r) => uni.showToast({ title: '扫码成功: ' + r.result, icon: 'none' }) }) }
+const goScan = () => uni.showModal({ title: '功能未开放', content: '扫码启动充电尚未接入真实订单流程。', showCancel: false })
 </script>
 
 <style scoped>

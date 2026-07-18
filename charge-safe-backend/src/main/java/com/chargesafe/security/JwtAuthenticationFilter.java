@@ -38,8 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         UserContext.remove();
         try {
-            String authorization = request.getHeader("Authorization");
-            if (!StringUtils.hasText(authorization) && isPublicRequest(request)) {
+            if (isCorsPreflightRequest(request) || isPublicRequest(request)) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -107,6 +106,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isPublicRequest(HttpServletRequest request) {
         return "POST".equalsIgnoreCase(request.getMethod())
                 && "/api/auth/login".equals(requestPath(request));
+    }
+
+    private boolean isCorsPreflightRequest(HttpServletRequest request) {
+        return "OPTIONS".equalsIgnoreCase(request.getMethod())
+                && StringUtils.hasText(request.getHeader("Origin"))
+                && StringUtils.hasText(request.getHeader("Access-Control-Request-Method"));
     }
 
     private String requestPath(HttpServletRequest request) {

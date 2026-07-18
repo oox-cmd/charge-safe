@@ -4,13 +4,18 @@
 spring:
   datasource:
     url: jdbc:mysql://${CHARGE_SAFE_DB_HOST:127.0.0.1}:${CHARGE_SAFE_DB_PORT:3306}/${CHARGE_SAFE_DB_NAME:charge_safe_dev}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${CHARGE_SAFE_DB_USERNAME:charge_safe_app}
-    password: ${CHARGE_SAFE_DB_PASSWORD:cugb666}
+    username: ${CHARGE_SAFE_DB_USERNAME}
+    password: ${CHARGE_SAFE_DB_PASSWORD}
   flyway:
     enabled: true
 
 server:
   port: 8080
+
+cors:
+  # 本地管理端（3000）与 uni-app H5 开发服务器（5173）的显式跨域来源。
+  # 生产环境必须通过 CORS_ALLOWED_ORIGINS 配置实际受信任来源。
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
 
 logging:
   level:

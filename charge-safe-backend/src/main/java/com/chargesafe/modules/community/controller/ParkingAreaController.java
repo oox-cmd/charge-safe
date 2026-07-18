@@ -24,6 +24,7 @@ public class ParkingAreaController {
     private final ParkingAreaService parkingAreaService;
 
     @Operation(summary = "分页查询车棚列表")
+    @RequiresPermission("parking-area:view")
     @GetMapping
     public Result<PageResult<ParkingArea>> pageList(
             @RequestParam(required = false) Long communityId,
@@ -32,6 +33,7 @@ public class ParkingAreaController {
     }
 
     @Operation(summary = "查询社区下所有车棚")
+    @RequiresPermission("parking-area:view")
     @GetMapping("/list")
     public Result<List<ParkingArea>> listByCommunityId(
             @RequestParam(required = false) Long communityId) {
@@ -39,6 +41,7 @@ public class ParkingAreaController {
     }
 
     @Operation(summary = "根据ID查询车棚")
+    @RequiresPermission("parking-area:view")
     @GetMapping("/{id}")
     public Result<ParkingArea> getById(@PathVariable Long id) {
         return Result.success(parkingAreaService.getById(id));
