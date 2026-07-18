@@ -40,5 +40,13 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# AI 助手配置 (mimo Token Plan)
+assistant:
+  enabled: ${ASSISTANT_ENABLED:false}
+  api-key: ${ASSISTANT_API_KEY:}
+  base-url: ${ASSISTANT_BASE_URL:https://token-plan-cn.xiaomimimo.com/v1}
+  model: ${ASSISTANT_MODEL:mimo-v2.5}
+  max-history: 10
+
 # 默认激活 local profile
 spring.profiles.active: ${SPRING_PROFILES_ACTIVE:local}

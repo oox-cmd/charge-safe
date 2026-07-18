@@ -42,6 +42,16 @@
       </view>
     </view>
 
+    <!-- 充电帮助入口 -->
+    <view class="help-entry" @click="goAssistant">
+      <view class="help-icon">🤖</view>
+      <view class="help-text">
+        <text class="help-title">充电帮助</text>
+        <text class="help-desc">有问题？问我就好了</text>
+      </view>
+      <text class="help-arrow">→</text>
+    </view>
+
     <!-- 快捷卡片 -->
     <view class="quick">
       <view class="quick-item" @click="goParking">
@@ -102,6 +112,7 @@ const goReservation = () => uni.navigateTo({ url: '/pages/reservation/index' })
 const goOrder = () => uni.navigateTo({ url: '/pages/order/list' })
 const goRepair = () => uni.navigateTo({ url: '/pages/repair/list' })
 const goNotification = () => uni.navigateTo({ url: '/pages/notification/list' })
+const goAssistant = () => uni.navigateTo({ url: '/pages/assistant/index' })
 const goScan = () => uni.showModal({ title: '功能未开放', content: '扫码启动充电尚未接入真实订单流程。', showCancel: false })
 </script>
 
@@ -174,4 +185,43 @@ const goScan = () => uni.showModal({ title: '功能未开放', content: '扫码�
 .sheet-ports { font-size: 24rpx; color: #2e7d32; }
 .sheet-check { font-size: 32rpx; color: #2563eb; font-weight: 700; }
 .sheet-empty { text-align: center; padding: 80rpx 0; color: #94a3b8; font-size: 28rpx; }
+
+/* 充电帮助入口 */
+.help-entry {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 22rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(102, 126, 234, 0.3);
+}
+
+.help-icon {
+  font-size: 48rpx;
+  margin-right: 20rpx;
+}
+
+.help-text {
+  flex: 1;
+}
+
+.help-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #fff;
+  display: block;
+}
+
+.help-desc {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 4rpx;
+  display: block;
+}
+
+.help-arrow {
+  font-size: 36rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
 </style>

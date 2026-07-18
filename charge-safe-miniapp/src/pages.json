@@ -84,6 +84,12 @@
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
+		},
+		{
+			"path": "pages/assistant/index",
+			"style": {
+				"navigationBarTitleText": "充电帮助"
+			}
 		}
 	],
 	"globalStyle": {

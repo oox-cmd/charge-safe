@@ -39,6 +39,11 @@
           <text class="mi-arrow">›</text>
         </view>
       </view>
+      <view class="menu-item" @click="goAssistant">
+        <view class="mi-icon" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);"><text>🤖</text></view>
+        <text class="mi-label">充电帮助</text>
+        <text class="mi-arrow">›</text>
+      </view>
     </view>
 
     <view class="service-note"><text>昵称、手机号、头像和密码目前由管理员账户统一维护。</text></view>
@@ -61,6 +66,7 @@ function goOrder() { navigateTo('/pages/order/list') }
 function goReservation() { navigateTo('/pages/reservation/index') }
 function goRepair() { navigateTo('/pages/repair/list') }
 function goNotification() { navigateTo('/pages/notification/list') }
+function goAssistant() { navigateTo('/pages/assistant/index') }
 </script>
 
 <style scoped>
