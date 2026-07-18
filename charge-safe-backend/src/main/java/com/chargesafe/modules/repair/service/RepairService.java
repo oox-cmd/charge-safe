@@ -7,6 +7,9 @@ import com.chargesafe.modules.repair.dto.TicketDispatchDTO;
 import com.chargesafe.modules.repair.dto.TicketFinishDTO;
 import com.chargesafe.modules.repair.entity.RepairReport;
 import com.chargesafe.modules.repair.entity.RepairTicket;
+import com.chargesafe.modules.repair.vo.RepairAssigneeVO;
+
+import java.util.List;
 
 public interface RepairService {
 
@@ -35,6 +38,9 @@ public interface RepairService {
      * 派发工单
      */
     RepairTicket dispatchTicket(TicketDispatchDTO dto);
+
+    /** 查询指定报修单所在社区可接单的维修人员。 */
+    List<RepairAssigneeVO> listDispatchableMaintainers(Long reportId);
 
     /**
      * 运维人员接单

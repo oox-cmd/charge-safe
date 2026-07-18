@@ -2,64 +2,65 @@
   <div class="permission-dashboard">
     <!-- 系统总览统计卡片 -->
     <el-row :gutter="20" class="stat-cards">
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :lg="6">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-card-content">
             <div class="stat-icon" style="background: #409eff">
               <el-icon :size="28"><User /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ userCount }}</div>
+              <div class="stat-value">{{ countsLoading ? '—' : userCount }}</div>
               <div class="stat-label">系统用户数</div>
             </div>
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :lg="6">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-card-content">
             <div class="stat-icon" style="background: #67c23a">
               <el-icon :size="28"><UserFilled /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ roleCount }}</div>
+              <div class="stat-value">{{ countsLoading ? '—' : roleCount }}</div>
               <div class="stat-label">权限角色数</div>
             </div>
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :lg="6">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-card-content">
             <div class="stat-icon" style="background: #e6a23c">
               <el-icon :size="28"><OfficeBuilding /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ communityCount }}</div>
+              <div class="stat-value">{{ countsLoading ? '—' : communityCount }}</div>
               <div class="stat-label">接入社区数</div>
             </div>
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :lg="6">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-card-content">
             <div class="stat-icon" style="background: #b37feb">
               <el-icon :size="28"><Monitor /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ deviceCount }}</div>
+              <div class="stat-value">{{ countsLoading ? '—' : deviceCount }}</div>
               <div class="stat-label">设备总数</div>
             </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
+    <el-alert v-if="countsLoadFailed" title="部分总览数据暂时不可用，请刷新后重试。" type="warning" :closable="false" show-icon />
 
     <!-- 中部：统计图表 & 系统配置入口 -->
     <el-row :gutter="20" style="margin-top: 20px">
       <!-- 端口状态分布 -->
-      <el-col :span="12">
+      <el-col :xs="24" :lg="12">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -71,7 +72,7 @@
       </el-col>
 
       <!-- 系统配置入口 -->
-      <el-col :span="12">
+      <el-col :xs="24" :lg="12">
         <el-card style="height: 343px">
           <template #header>
             <div class="card-header">
@@ -111,7 +112,7 @@
     <!-- 下部：近7天充电订单趋势 & 最近操作日志 -->
     <el-row :gutter="20" style="margin-top: 20px">
       <!-- 近7天订单趋势 -->
-      <el-col :span="12">
+      <el-col :xs="24" :lg="12">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -123,7 +124,7 @@
       </el-col>
 
       <!-- 最近操作日志 -->
-      <el-col :span="12">
+      <el-col :xs="24" :lg="12">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -167,6 +168,8 @@ const roleCount = ref(0)
 const communityCount = ref(0)
 const deviceCount = ref(0)
 const recentLogs = ref([])
+const countsLoading = ref(true)
+const countsLoadFailed = ref(false)
 
 const portStatusChartRef = ref(null)
 const orderTrendChartRef = ref(null)
@@ -174,21 +177,30 @@ let portChart = null
 let trendChart = null
 
 const fetchCounts = async () => {
-  try {
-    const userRes = await getUsers({ page: 1, size: 1 })
-    if (userRes.code === 200) userCount.value = userRes.data.total || 0
+  countsLoading.value = true
+  countsLoadFailed.value = false
+  const results = await Promise.allSettled([
+    getUsers({ page: 1, size: 1 }),
+    getRoleList(),
+    getCommunities({ page: 1, size: 1 }),
+    getDevices({ page: 1, size: 1 })
+  ])
+  const [userRes, roleRes, communityRes, deviceRes] = results
 
-    const roleRes = await getRoleList()
-    if (roleRes.code === 200) roleCount.value = roleRes.data.length || 0
-
-    const communityRes = await getCommunities({ page: 1, size: 1 })
-    if (communityRes.code === 200) communityCount.value = communityRes.data.total || 0
-
-    const deviceRes = await getDevices({ page: 1, size: 1 })
-    if (deviceRes.code === 200) deviceCount.value = deviceRes.data.total || 0
-  } catch (error) {
-    console.error('获取总览统计失败:', error)
+  const setCount = (result, setter, getCount) => {
+    if (result.status === 'fulfilled' && result.value?.code === 200) {
+      setter(getCount(result.value.data))
+      return
+    }
+    countsLoadFailed.value = true
+    console.error('获取总览统计失败:', result.status === 'rejected' ? result.reason : result.value?.message)
   }
+
+  setCount(userRes, value => { userCount.value = value }, data => data?.total || 0)
+  setCount(roleRes, value => { roleCount.value = value }, data => data?.length || 0)
+  setCount(communityRes, value => { communityCount.value = value }, data => data?.total || 0)
+  setCount(deviceRes, value => { deviceCount.value = value }, data => data?.total || 0)
+  countsLoading.value = false
 }
 
 const fetchLogs = async () => {
@@ -390,6 +402,10 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 
+.stat-cards :deep(.el-col) {
+  margin-bottom: 12px;
+}
+
 .stat-card-content {
   display: flex;
   align-items: center;
@@ -431,7 +447,7 @@ onUnmounted(() => {
 
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 16px;
   padding: 10px 0;
 }

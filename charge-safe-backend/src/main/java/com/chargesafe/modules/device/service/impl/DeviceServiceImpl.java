@@ -49,13 +49,21 @@ public class DeviceServiceImpl implements DeviceService {
         // Fill parkingAreaName
         Set<Long> areaIds = result.getRecords().stream().map(ChargingDevice::getParkingAreaId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, String> areaNameMap = areaIds.isEmpty() ? Map.of() : parkingAreaMapper.selectBatchIds(areaIds).stream().collect(Collectors.toMap(ParkingArea::getId, ParkingArea::getName));
-        result.getRecords().forEach(d -> d.setParkingAreaName(areaNameMap.get(d.getParkingAreaId())));
+        result.getRecords().forEach(d -> {
+            if (d.getParkingAreaId() != null) {
+                d.setParkingAreaName(areaNameMap.get(d.getParkingAreaId()));
+            }
+        });
 
         Set<Long> categoryIds = result.getRecords().stream().map(ChargingDevice::getCategoryId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, String> categoryNameMap = categoryIds.isEmpty() ? Map.of() : deviceCategoryMapper.selectBatchIds(categoryIds)
                 .stream().collect(Collectors.toMap(DeviceCategory::getId, DeviceCategory::getName));
-        result.getRecords().forEach(d -> d.setCategoryName(categoryNameMap.get(d.getCategoryId())));
+        result.getRecords().forEach(d -> {
+            if (d.getCategoryId() != null) {
+                d.setCategoryName(categoryNameMap.get(d.getCategoryId()));
+            }
+        });
 
         return new PageResult<>(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
     }

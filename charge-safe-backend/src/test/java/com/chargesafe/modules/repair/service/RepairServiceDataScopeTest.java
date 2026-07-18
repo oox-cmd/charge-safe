@@ -1,6 +1,8 @@
 package com.chargesafe.modules.repair.service;
 
 import com.chargesafe.common.BusinessException;
+import com.chargesafe.common.PageQuery;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.chargesafe.modules.community.entity.ParkingArea;
 import com.chargesafe.modules.community.mapper.ParkingAreaMapper;
 import com.chargesafe.modules.device.entity.ChargingDevice;
@@ -10,6 +12,7 @@ import com.chargesafe.modules.device.mapper.ChargingDeviceMapper;
 import com.chargesafe.modules.device.mapper.ChargingPortMapper;
 import com.chargesafe.modules.notification.mapper.NotificationMapper;
 import com.chargesafe.modules.repair.dto.RepairReportDTO;
+import com.chargesafe.modules.repair.dto.TicketDispatchDTO;
 import com.chargesafe.modules.repair.entity.RepairReport;
 import com.chargesafe.modules.repair.entity.RepairTicket;
 import com.chargesafe.modules.repair.enums.ReportStatus;
@@ -18,6 +21,9 @@ import com.chargesafe.modules.repair.mapper.RepairReportMapper;
 import com.chargesafe.modules.repair.mapper.RepairTicketLogMapper;
 import com.chargesafe.modules.repair.mapper.RepairTicketMapper;
 import com.chargesafe.modules.repair.service.impl.RepairServiceImpl;
+import com.chargesafe.modules.user.entity.SysRole;
+import com.chargesafe.modules.user.entity.SysUser;
+import com.chargesafe.modules.user.entity.SysUserRole;
 import com.chargesafe.modules.user.mapper.SysRoleMapper;
 import com.chargesafe.modules.user.mapper.SysUserMapper;
 import com.chargesafe.modules.user.mapper.SysUserRoleMapper;
@@ -25,6 +31,8 @@ import com.chargesafe.security.LoginUser;
 import com.chargesafe.security.UserContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +49,9 @@ class RepairServiceDataScopeTest {
     private final ChargingDeviceMapper deviceMapper = mock(ChargingDeviceMapper.class);
     private final ChargingPortMapper portMapper = mock(ChargingPortMapper.class);
     private final ParkingAreaMapper parkingAreaMapper = mock(ParkingAreaMapper.class);
+    private final SysUserMapper userMapper = mock(SysUserMapper.class);
+    private final SysRoleMapper roleMapper = mock(SysRoleMapper.class);
+    private final SysUserRoleMapper userRoleMapper = mock(SysUserRoleMapper.class);
     private final RepairServiceImpl service = new RepairServiceImpl(
             reportMapper,
             ticketMapper,
@@ -49,9 +60,9 @@ class RepairServiceDataScopeTest {
             portMapper,
             parkingAreaMapper,
             mock(NotificationMapper.class),
-            mock(SysUserMapper.class),
-            mock(SysRoleMapper.class),
-            mock(SysUserRoleMapper.class));
+            userMapper,
+            roleMapper,
+            userRoleMapper);
 
     @AfterEach
     void clearUserContext() {
@@ -97,6 +108,108 @@ class RepairServiceDataScopeTest {
     }
 
     @Test
+    void platformAdminCanListReportsWithoutACommunityFilter() {
+        UserContext.setUser(new LoginUser(1L, "admin", "PLATFORM_ADMIN"));
+        PageQuery query = new PageQuery();
+        query.setPage(1);
+        query.setSize(10);
+        when(reportMapper.selectPage(any(Page.class), any())).thenReturn(new Page<RepairReport>(1, 10));
+
+        service.pageReports(null, null, query);
+
+        verify(reportMapper).selectPage(any(Page.class), any());
+    }
+
+    @Test
+    void propertyCannotDispatchAnAlreadyDispatchedReport() {
+        LoginUser propertyAdmin = new LoginUser(101L, "property", "PROPERTY_ADMIN");
+        propertyAdmin.setCommunityId(1L);
+        UserContext.setUser(propertyAdmin);
+
+        RepairReport report = new RepairReport();
+        report.setId(30L);
+        report.setCommunityId(1L);
+        report.setStatus(ReportStatus.DISPATCHED.getCode());
+        when(reportMapper.selectById(30L)).thenReturn(report);
+
+        TicketDispatchDTO dto = new TicketDispatchDTO();
+        dto.setReportId(30L);
+        dto.setAssigneeId(202L);
+
+        assertThrows(BusinessException.class, () -> service.dispatchTicket(dto));
+        verify(ticketMapper, never()).insert(any(RepairTicket.class));
+    }
+
+    @Test
+    void propertyCanRedispatchRejectedReportOnlyOnce() {
+        LoginUser propertyAdmin = new LoginUser(101L, "property", "PROPERTY_ADMIN");
+        propertyAdmin.setCommunityId(1L);
+        UserContext.setUser(propertyAdmin);
+
+        RepairReport report = new RepairReport();
+        report.setId(30L);
+        report.setCommunityId(1L);
+        report.setReporterId(303L);
+        report.setStatus(ReportStatus.REJECTED.getCode());
+        when(reportMapper.selectById(30L)).thenReturn(report);
+        when(reportMapper.transitionToDispatched(30L, ReportStatus.DISPATCHED.getCode())).thenReturn(1);
+        stubActiveMaintainer(202L, 1L);
+
+        TicketDispatchDTO dto = new TicketDispatchDTO();
+        dto.setReportId(30L);
+        dto.setAssigneeId(202L);
+
+        service.dispatchTicket(dto);
+
+        assertEquals(ReportStatus.DISPATCHED.getCode(), report.getStatus());
+        verify(ticketMapper).insert(any(RepairTicket.class));
+    }
+
+    @Test
+    void propertyCannotDispatchWhenAtomicStatusTransitionLosesRace() {
+        LoginUser propertyAdmin = new LoginUser(101L, "property", "PROPERTY_ADMIN");
+        propertyAdmin.setCommunityId(1L);
+        UserContext.setUser(propertyAdmin);
+
+        RepairReport report = new RepairReport();
+        report.setId(30L);
+        report.setCommunityId(1L);
+        report.setStatus(ReportStatus.PENDING.getCode());
+        when(reportMapper.selectById(30L)).thenReturn(report);
+        when(reportMapper.transitionToDispatched(30L, ReportStatus.DISPATCHED.getCode())).thenReturn(0);
+        stubActiveMaintainer(202L, 1L);
+
+        TicketDispatchDTO dto = new TicketDispatchDTO();
+        dto.setReportId(30L);
+        dto.setAssigneeId(202L);
+
+        assertThrows(BusinessException.class, () -> service.dispatchTicket(dto));
+        verify(ticketMapper, never()).insert(any(RepairTicket.class));
+    }
+
+    @Test
+    void propertyCannotDispatchToAUserOutsideTheReportCommunity() {
+        LoginUser propertyAdmin = new LoginUser(101L, "property", "PROPERTY_ADMIN");
+        propertyAdmin.setCommunityId(1L);
+        UserContext.setUser(propertyAdmin);
+
+        RepairReport report = new RepairReport();
+        report.setId(30L);
+        report.setCommunityId(1L);
+        report.setStatus(ReportStatus.PENDING.getCode());
+        when(reportMapper.selectById(30L)).thenReturn(report);
+        stubActiveMaintainer(202L, 2L);
+
+        TicketDispatchDTO dto = new TicketDispatchDTO();
+        dto.setReportId(30L);
+        dto.setAssigneeId(202L);
+
+        assertThrows(BusinessException.class, () -> service.dispatchTicket(dto));
+        verify(reportMapper, never()).transitionToDispatched(any(), any());
+        verify(ticketMapper, never()).insert(any(RepairTicket.class));
+    }
+
+    @Test
     void propertyAcceptanceSynchronizesReportAndPortState() {
         LoginUser propertyAdmin = new LoginUser(101L, "property", "PROPERTY_ADMIN");
         propertyAdmin.setCommunityId(1L);
@@ -129,5 +242,24 @@ class RepairServiceDataScopeTest {
         verify(ticketMapper).updateById(ticket);
         verify(reportMapper).updateById(report);
         verify(portMapper).updateById(port);
+    }
+
+    private void stubActiveMaintainer(Long userId, Long communityId) {
+        SysRole maintainerRole = new SysRole();
+        maintainerRole.setId(3L);
+        maintainerRole.setRoleCode("MAINTAINER");
+        maintainerRole.setStatus(1);
+        SysUserRole userRole = new SysUserRole();
+        userRole.setUserId(userId);
+        userRole.setRoleId(3L);
+        SysUser maintainer = new SysUser();
+        maintainer.setId(userId);
+        maintainer.setUsername("maintainer");
+        maintainer.setStatus(1);
+        maintainer.setCommunityId(communityId);
+
+        when(roleMapper.selectOne(any())).thenReturn(maintainerRole);
+        when(userRoleMapper.selectList(any())).thenReturn(List.of(userRole));
+        when(userMapper.selectList(any())).thenReturn(communityId.equals(1L) ? List.of(maintainer) : List.of());
     }
 }

@@ -26,6 +26,10 @@ export function dispatchTicket(data) {
   return request.post('/api/repair-tickets/dispatch', data)
 }
 
+export function getDispatchableMaintainers(reportId) {
+  return request.get(`/api/repair-reports/${reportId}/dispatchable-maintainers`)
+}
+
 export function acceptTicket(id) {
   return request.post(`/api/repair-tickets/${id}/accept`)
 }

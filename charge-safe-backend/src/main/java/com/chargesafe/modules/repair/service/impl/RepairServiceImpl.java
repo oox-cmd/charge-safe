@@ -27,6 +27,7 @@ import com.chargesafe.modules.repair.mapper.RepairReportMapper;
 import com.chargesafe.modules.repair.mapper.RepairTicketLogMapper;
 import com.chargesafe.modules.repair.mapper.RepairTicketMapper;
 import com.chargesafe.modules.repair.service.RepairService;
+import com.chargesafe.modules.repair.vo.RepairAssigneeVO;
 import com.chargesafe.modules.user.entity.SysUser;
 import com.chargesafe.modules.user.entity.SysUserRole;
 import com.chargesafe.modules.user.entity.SysRole;
@@ -118,11 +119,11 @@ public class RepairServiceImpl implements RepairService {
     public PageResult<RepairReport> pageReports(Long communityId, String status, PageQuery pageQuery) {
         Page<RepairReport> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         Long scopedCommunityId = DataScope.isPlatformAdmin() ? communityId : DataScope.currentCommunityId();
-        if (scopedCommunityId == null) {
+        if (!DataScope.isPlatformAdmin() && scopedCommunityId == null) {
             return new PageResult<>(0, pageQuery.getPage(), pageQuery.getSize(), List.of());
         }
         LambdaQueryWrapper<RepairReport> wrapper = new LambdaQueryWrapper<RepairReport>()
-                .eq(RepairReport::getCommunityId, scopedCommunityId)
+                .eq(scopedCommunityId != null, RepairReport::getCommunityId, scopedCommunityId)
                 .eq(StringUtils.hasText(status), RepairReport::getStatus, status)
                 .orderByDesc(RepairReport::getCreatedTime);
 
@@ -206,9 +207,18 @@ public class RepairServiceImpl implements RepairService {
         Long userId = UserContext.getUserId();
         RepairReport report = getReportById(dto.getReportId());
 
-        // 更新报修状态
+        if (!Set.of(ReportStatus.PENDING.getCode(), ReportStatus.REJECTED.getCode()).contains(report.getStatus())) {
+            throw new BusinessException(ResultCode.TICKET_STATUS_ERROR);
+        }
+        assertDispatchableMaintainer(report, dto.getAssigneeId());
+
+        // 只允许待处理或已驳回的报修单派单，条件更新避免并发重复创建工单。
+        int transitioned = reportMapper.transitionToDispatched(report.getId(), ReportStatus.DISPATCHED.getCode());
+        if (transitioned != 1) {
+            throw new BusinessException(ResultCode.TICKET_STATUS_ERROR);
+        }
+
         report.setStatus(ReportStatus.DISPATCHED.getCode());
-        reportMapper.updateById(report);
 
         // 创建维修工单
         RepairTicket ticket = new RepairTicket();
@@ -412,6 +422,13 @@ public class RepairServiceImpl implements RepairService {
         return ticket;
     }
 
+    @Override
+    public List<RepairAssigneeVO> listDispatchableMaintainers(Long reportId) {
+        assertPropertyManager();
+        RepairReport report = getReportById(reportId);
+        return findActiveMaintainers(report.getCommunityId());
+    }
+
     private String generateTicketNo() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         long seq = TICKET_SEQ.getAndIncrement() % 10000;
@@ -468,6 +485,48 @@ public class RepairServiceImpl implements RepairService {
                 .eq(SysUser::getCommunityId, communityId)
                 .eq(SysUser::getStatus, 1));
         propertyUsers.forEach(user -> createNotification(user.getId(), title, content, type, businessType, businessId));
+    }
+
+    private void assertDispatchableMaintainer(RepairReport report, Long assigneeId) {
+        boolean dispatchable = findActiveMaintainers(report.getCommunityId()).stream()
+                .anyMatch(maintainer -> Objects.equals(maintainer.getId(), assigneeId));
+        if (!dispatchable) {
+            throw new BusinessException("维修人员不存在、未启用或不属于当前社区");
+        }
+    }
+
+    private List<RepairAssigneeVO> findActiveMaintainers(Long communityId) {
+        if (communityId == null) {
+            return List.of();
+        }
+        SysRole maintainerRole = roleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getRoleCode, DataScope.ROLE_MAINTAINER)
+                .eq(SysRole::getStatus, 1));
+        if (maintainerRole == null) {
+            return List.of();
+        }
+        List<Long> userIds = userRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
+                        .eq(SysUserRole::getRoleId, maintainerRole.getId()))
+                .stream()
+                .map(SysUserRole::getUserId)
+                .distinct()
+                .toList();
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return userMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                        .in(SysUser::getId, userIds)
+                        .eq(SysUser::getCommunityId, communityId)
+                        .eq(SysUser::getStatus, 1))
+                .stream()
+                .map(user -> {
+                    RepairAssigneeVO vo = new RepairAssigneeVO();
+                    vo.setId(user.getId());
+                    vo.setUsername(user.getUsername());
+                    vo.setNickname(user.getNickname());
+                    return vo;
+                })
+                .toList();
     }
 
     private void notifyReporter(RepairTicket ticket, String title, String content) {

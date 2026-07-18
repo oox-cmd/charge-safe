@@ -10,12 +10,15 @@ import com.chargesafe.modules.repair.dto.TicketFinishDTO;
 import com.chargesafe.modules.repair.entity.RepairReport;
 import com.chargesafe.modules.repair.entity.RepairTicket;
 import com.chargesafe.modules.repair.service.RepairService;
+import com.chargesafe.modules.repair.vo.RepairAssigneeVO;
 import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "报修工单管理")
 @RestController
@@ -76,6 +79,13 @@ public class RepairController {
     @PostMapping("/repair-tickets/dispatch")
     public Result<RepairTicket> dispatchTicket(@Valid @RequestBody TicketDispatchDTO dto) {
         return Result.success(repairService.dispatchTicket(dto));
+    }
+
+    @Operation(summary = "查询报修单可派发的维修人员")
+    @RequiresPermission("repair-ticket:view")
+    @GetMapping("/repair-reports/{id}/dispatchable-maintainers")
+    public Result<List<RepairAssigneeVO>> listDispatchableMaintainers(@PathVariable Long id) {
+        return Result.success(repairService.listDispatchableMaintainers(id));
     }
 
     @Operation(summary = "运维人员接单")

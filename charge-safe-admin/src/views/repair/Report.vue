@@ -21,7 +21,9 @@
         <el-table-column prop="createdTime" label="报修时间" width="180" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" v-permission="'repair-ticket:view'" type="primary" link icon="Share" @click="handleDispatch(row)">派单</el-button>
+            <el-button v-if="['PENDING', 'REJECTED'].includes(row.status)" v-permission="'repair-ticket:view'" type="primary" link icon="Share" @click="handleDispatch(row)">
+              {{ row.status === 'REJECTED' ? '重新派单' : '派单' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -38,17 +40,17 @@
     <el-dialog v-model="dispatchDialogVisible" title="派发工单" width="500px">
       <el-form ref="dispatchFormRef" :model="dispatchForm" :rules="dispatchRules" label-width="80px">
         <el-form-item label="维修人员" prop="assigneeId">
-          <el-select v-model="dispatchForm.assigneeId" placeholder="选择维修人员" style="width: 100%">
+          <el-select v-model="dispatchForm.assigneeId" placeholder="选择维修人员" :loading="maintainersLoading" :disabled="maintainersLoading || maintainers.length === 0" no-data-text="当前社区没有可派单的维修人员" style="width: 100%">
             <el-option v-for="item in maintainers" :key="item.id" :label="item.nickname || item.username" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="维修要求" prop="repairRequirement">
-          <el-input v-model="dispatchForm.repairRequirement" type="textarea" :rows="3" placeholder="请输入具体维修要求" />
+          <el-input v-model="dispatchForm.repairRequirement" type="textarea" :rows="3" placeholder="请输入具体维修要求…" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dispatchDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleDispatchSubmit">确定</el-button>
+        <el-button type="primary" :loading="submitLoading" :disabled="maintainersLoading || maintainers.length === 0" @click="handleDispatchSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -58,8 +60,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import CsPagination from '@/components/CsPagination.vue'
 import { ElMessage } from 'element-plus'
-import { getRepairReports, dispatchTicket } from '@/api/repair'
-import { getUsers } from '@/api/system'
+import { getRepairReports, dispatchTicket, getDispatchableMaintainers } from '@/api/repair'
 import CsPageHeader from '@/components/CsPageHeader.vue'
 import CsTableToolbar from '@/components/CsTableToolbar.vue'
 import CsStatusTag from '@/components/CsStatusTag.vue'
@@ -71,6 +72,7 @@ const total = ref(0)
 const dispatchDialogVisible = ref(false)
 const dispatchFormRef = ref(null)
 const maintainers = ref([])
+const maintainersLoading = ref(false)
 
 const queryParams = reactive({
   page: 1,
@@ -85,17 +87,6 @@ const dispatchForm = reactive({
 
 const dispatchRules = {
   assigneeId: [{ required: true, message: '请选择维修人员', trigger: 'change' }]
-}
-
-const fetchMaintainers = async () => {
-  try {
-    const res = await getUsers({ roleCode: 'MAINTAINER', page: 1, size: 100 })
-    if (res.code === 200) {
-      maintainers.value = res.data.records || []
-    }
-  } catch (error) {
-    console.error('获取维修人员失败:', error)
-  }
 }
 
 const fetchData = async () => {
@@ -113,11 +104,25 @@ const fetchData = async () => {
   }
 }
 
-const handleDispatch = (row) => {
+const handleDispatch = async (row) => {
   dispatchForm.reportId = row.id
   dispatchForm.assigneeId = null
   dispatchForm.repairRequirement = ''
-  dispatchDialogVisible.value = true
+  maintainers.value = []
+  maintainersLoading.value = true
+  try {
+    const res = await getDispatchableMaintainers(row.id)
+    if (res.code !== 200) {
+      throw new Error(res.message || '获取维修人员失败')
+    }
+    maintainers.value = res.data || []
+    dispatchDialogVisible.value = true
+  } catch (error) {
+    console.error('获取维修人员失败:', error)
+    ElMessage.error('获取可派单维修人员失败，请稍后重试')
+  } finally {
+    maintainersLoading.value = false
+  }
 }
 
 const handleDispatchSubmit = async () => {
@@ -142,7 +147,6 @@ const handleDispatchSubmit = async () => {
 
 onMounted(() => {
   fetchData()
-  fetchMaintainers()
 })
 </script>
 
