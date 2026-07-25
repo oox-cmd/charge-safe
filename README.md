@@ -2,7 +2,7 @@
 
 > 《面向社区场景的电动自行车充电停放与安全运维管理系统设计与实现》
 
-[![GitHub](https://img.shields.io/badge/GitHub-wangsf134%2Fcharge--safe-blue?logo=github)](https://github.com/wangsf134/charge-safe)
+[![GitHub](https://img.shields.io/badge/GitHub-oox--cmd%2Fcharge--safe-blue?logo=github)](https://github.com/oox-cmd/charge-safe)
 
 ## 项目简介
 
@@ -40,6 +40,7 @@ charge-safe/
 │       │       ├── notification/     # 消息通知
 │       │       ├── statistics/       # 统计分析
 │       │       ├── simulator/        # 设备模拟
+│       │       ├── assistant/        # AI 充电问答与统计
 │       │       └── log/              # 操作日志
 │       └── resources/
 │           ├── application.yml       # 通用配置
@@ -53,7 +54,9 @@ charge-safe/
 │               ├── V4__add_community_coordinates.sql
 │               ├── V5__adjust_property_admin_menus.sql
 │               ├── V6__add_resident_dashboard_permission.sql
-│               └── V7__add_dept_and_device_category.sql
+│               ├── V7__add_dept_and_device_category.sql
+│               ├── V8__add_ai_qa_record.sql
+│               └── V9__add_assistant_stats_permission.sql
 ├── charge-safe-admin/                # Vue3 Web 管理端
 │   └── src/
 │       ├── api/                      # API 接口封装
@@ -84,7 +87,8 @@ charge-safe/
 │       │   ├── order/                # 订单列表/详情
 │       │   ├── repair/               # 报修提交/记录
 │       │   ├── notification/         # 消息列表
-│       │   └── profile/              # 个人中心
+│       │   ├── profile/              # 个人中心
+│       │   └── assistant/            # AI 充电帮助
 │       └── api/                      # 请求封装
 ├── sql/                              # 原始数据库脚本 (仅供参考)
 ├── docs/                             # 项目文档
@@ -126,7 +130,7 @@ charge-safe/
 ### 2. 克隆项目
 
 ```bash
-git clone https://github.com/wangsf134/charge-safe.git
+git clone https://github.com/oox-cmd/charge-safe.git
 cd charge-safe
 ```
 
@@ -150,7 +154,7 @@ GRANT ALL PRIVILEGES ON charge_safe_dev.*
   TO 'charge_safe_app'@'localhost';
 ```
 
-只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V7，也不要执行根目录
+只创建空数据库和专用账号。不要手动执行 Flyway V1 至 V9，也不要执行根目录
 `sql/schema.sql` 或 `sql/data.sql`。后端启动时会由 Flyway 自动校验已执行迁移并
 执行 pending migration；存在 pending migration 是正常升级状态，不代表迁移异常。
 
@@ -329,7 +333,9 @@ charge-safe-backend/src/main/resources/db/migration/
 ├── V4__add_community_coordinates.sql  # 社区经纬度 + 补充演示数据
 ├── V5__adjust_property_admin_menus.sql # 物业管理员菜单权限补充
 ├── V6__add_resident_dashboard_permission.sql # 居民页面权限及角色映射
-└── V7__add_dept_and_device_category.sql # 部门、设备分类及居民报修权限
+├── V7__add_dept_and_device_category.sql # 部门、设备分类及居民报修权限
+├── V8__add_ai_qa_record.sql # AI 问答记录表
+└── V9__add_assistant_stats_permission.sql # AI 统计权限及平台管理员绑定
 ```
 
 ### 规则
@@ -338,11 +344,11 @@ charge-safe-backend/src/main/resources/db/migration/
 2. 不允许手动改库后只口头同步
 3. 不允许业务代码启动时自动 DROP 表
 4. 本地库、云端开发库、云端正式库的表结构由同一套迁移文件生成
-5. 不要求团队成员手动逐个执行迁移；由 Flyway 执行 V1 至 V7
+5. 不要求团队成员手动逐个执行迁移；由 Flyway 执行 V1 至 V9
 6. 不得同时执行 `sql/schema.sql`、`sql/data.sql` 和 Flyway
 7. 根目录 `sql/schema.sql`、`sql/data.sql` 不符合 Flyway 命名规则，也未被当前
    MySQL Profile 或启动脚本自动引用；它们仅保留作参考，默认流程不得执行
-8. 已发布的 V1 至 V5 不得移动、重命名、修改内容或版本号；待执行的 V6、V7 也必须在评审后随代码一起提交
+8. 已发布的 V1 至 V5 不得移动、重命名、修改内容或版本号；后续结构变更必须以新的版本迁移随代码提交
 9. Flyway 在后端启动时自动校验历史并执行 pending migration；pending 不等于异常
 10. 不得手工修改 `flyway_schema_history`，也不得随意执行 repair、baseline 或 clean
 

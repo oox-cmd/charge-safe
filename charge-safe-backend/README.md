@@ -36,7 +36,7 @@ GRANT ALL PRIVILEGES ON charge_safe_dev.* TO 'charge_safe_app'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Flyway 会在应用启动时自动校验并执行 `src/main/resources/db/migration` 下的 pending 迁移（当前为 V1→V7），无需手动建表。
+Flyway 会在应用启动时自动校验并执行 `src/main/resources/db/migration` 下的 pending 迁移（当前为 V1→V9），无需手动建表。
 
 ### 2. 启动（本地开发）
 
@@ -97,6 +97,19 @@ java -jar target/charge-safe-backend-1.0.0.jar --spring.profiles.active=prod
 | 正式演示 | `application-prod.yml` | 8081 | `127.0.0.1:3306/charge_safe`（环境变量注入）|
 
 数据库敏感信息可通过环境变量覆盖：`CHARGE_SAFE_DB_HOST` / `CHARGE_SAFE_DB_PORT` / `CHARGE_SAFE_DB_NAME` / `CHARGE_SAFE_DB_USERNAME` / `CHARGE_SAFE_DB_PASSWORD`。
+
+## AI 助手配置
+
+AI 助手默认关闭大模型调用并使用内置 FAQ 兜底。要启用 OpenAI 兼容模型接口，请在本机私有环境中设置：
+
+```bash
+export ASSISTANT_ENABLED=true
+export ASSISTANT_API_KEY='<YOUR_PRIVATE_API_KEY>'
+export ASSISTANT_BASE_URL='https://token-plan-cn.xiaomimimo.com/v1'
+export ASSISTANT_MODEL='mimo-v2.5'
+```
+
+`ASSISTANT_API_KEY` 只能保存在用户私有环境变量或被 Git 忽略的本地文件中，禁止写入 `application.yml`、示例配置或提交到仓库。普通与流式问答都会以 Bearer Token 调用模型；调用失败时自动降级至 FAQ。
 
 ## 默认账号
 
@@ -190,8 +203,12 @@ com.chargesafe
 | V3 | `V3__add_menu_tables.sql` | `sys_menu` / `sys_role_menu` 表 + 菜单与角色权限绑定 |
 | V4 | `V4__add_community_coordinates.sql` | 社区经纬度字段 + 补充演示小区 |
 | V5 | `V5__adjust_property_admin_menus.sql` | 为物业管理员补充 `community:list:view` 权限 |
+| V6 | `V6__add_resident_dashboard_permission.sql` | 居民看板权限及角色映射 |
+| V7 | `V7__add_dept_and_device_category.sql` | 部门、设备分类及补充权限 |
+| V8 | `V8__add_ai_qa_record.sql` | AI 问答记录表 |
+| V9 | `V9__add_assistant_stats_permission.sql` | AI 统计隐藏权限及平台管理员绑定 |
 
-新增结构变更必须提交新的迁移文件（如 `V7__xxx.sql`），版本号不得与已有重复。
+新增结构变更必须提交新的迁移文件（如 `V10__xxx.sql`），版本号不得与已有重复。
 
 ## 接口规范
 
