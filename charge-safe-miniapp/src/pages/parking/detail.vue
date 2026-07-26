@@ -7,7 +7,7 @@
         <view class="hs-item"><text class="hs-num">{{ ports.length }}</text><text class="hs-lbl">总端口</text></view>
         <view class="hs-item accent-green"><text class="hs-num">{{ idleCount }}</text><text class="hs-lbl">空闲</text></view>
         <view class="hs-item accent-orange"><text class="hs-num">{{ chargingCount }}</text><text class="hs-lbl">充电中</text></view>
-        <view class="hs-item accent-red"><text class="hs-num">{{ faultCount }}</text><text class="hs-lbl">故障</text></view>
+        <view class="hs-item accent-red"><text class="hs-num">{{ unavailableCount }}</text><text class="hs-lbl">不可用</text></view>
       </view>
     </view>
 
@@ -33,7 +33,7 @@
       <view class="bar-seg idle" :style="{ flex: idleCount }" v-if="idleCount > 0"></view>
       <view class="bar-seg reserved" :style="{ flex: reservedCount }" v-if="reservedCount > 0"></view>
       <view class="bar-seg charging" :style="{ flex: chargingCount }" v-if="chargingCount > 0"></view>
-      <view class="bar-seg fault" :style="{ flex: faultCount }" v-if="faultCount > 0"></view>
+      <view class="bar-seg fault" :style="{ flex: unavailableCount }" v-if="unavailableCount > 0"></view>
     </view>
 
     <view class="modal-mask" v-if="showModal" @click="showModal = false">
@@ -41,7 +41,6 @@
         <text class="modal-title">确认预约</text>
         <view class="modal-row"><text class="mlbl">端口</text><text class="mval">{{ selectedPort.portName }}</text></view>
         <view class="modal-row"><text class="mlbl">状态</text><text :class="['mval', selectedPort.status]">{{ statusMap[selectedPort.status] }}</text></view>
-        <view class="modal-row" v-if="selectedPort.status === 'IDLE'"><text class="mlbl">预估费用</text><text class="mval cost">¥1.50/小时</text></view>
         <view class="modal-btns">
           <button v-if="selectedPort.status === 'IDLE'" class="btn-reserve" @click="handleReserve(selectedPort)">预约充电</button>
           <button v-if="selectedPort.status === 'FAULT'" class="btn-fault" @click="handleFault(selectedPort)">报修此端口</button>
@@ -65,9 +64,19 @@ const selectedPort = ref({})
 const idleCount = computed(() => ports.value.filter(p => p.status === 'IDLE').length)
 const reservedCount = computed(() => ports.value.filter(p => p.status === 'RESERVED').length)
 const chargingCount = computed(() => ports.value.filter(p => p.status === 'CHARGING').length)
-const faultCount = computed(() => ports.value.filter(p => ['FAULT','MAINTENANCE','DISABLED','OFFLINE'].includes(p.status)).length)
+const unavailableCount = computed(() => ports.value.filter(p => !['IDLE', 'RESERVED', 'CHARGING'].includes(p.status)).length)
 
-const statusMap = { 'IDLE': '空闲', 'RESERVED': '已预约', 'CHARGING': '充电中', 'FAULT': '故障', 'MAINTENANCE': '维修中', 'DISABLED': '停用', 'OFFLINE': '离线' }
+const statusMap = {
+  'IDLE': '空闲',
+  'RESERVED': '已预约',
+  'CHARGING': '充电中',
+  'COMPLETED_WAITING_PICKUP': '已完成待取车',
+  'OVERTIME_OCCUPIED': '超时占用',
+  'FAULT': '故障',
+  'MAINTENANCE': '维修中',
+  'DISABLED': '停用',
+  'OFFLINE': '离线'
+}
 
 function handlePort(port) { selectedPort.value = port; showModal.value = true }
 function handleReserve(port) { showModal.value = false; uni.navigateTo({ url: `/pages/reservation/confirm?portId=${port.id}&portName=${port.portName}` }) }
@@ -81,7 +90,7 @@ function handleFault(port) {
 onLoad(async (options) => {
   const areaId = options.id
   const areaName = options.name || ''
-  area.value = { id: areaId, name: areaName, location: '' }
+  area.value = { id: areaId, name: areaName, location: options.location || '' }
 
   if (!areaId) return
 
@@ -121,19 +130,19 @@ onLoad(async (options) => {
 .port-block { width: calc(25% - 12rpx); border-radius: 18rpx; padding: 24rpx 12rpx; text-align: center; }
 .port-block.IDLE { background: #f0fdf4; border: 2rpx solid #bbf7d0; }
 .port-block.CHARGING { background: #fef9f0; border: 2rpx solid #fde68a; }
-.port-block.FAULT, .port-block.MAINTENANCE, .port-block.DISABLED, .port-block.OFFLINE { background: #fef2f2; border: 2rpx solid #fecaca; }
+.port-block.FAULT, .port-block.MAINTENANCE, .port-block.DISABLED, .port-block.OFFLINE, .port-block.COMPLETED_WAITING_PICKUP, .port-block.OVERTIME_OCCUPIED { background: #fef2f2; border: 2rpx solid #fecaca; }
 .port-block.RESERVED { background: #eff6ff; border: 2rpx solid #bfdbfe; }
 .port-no { font-size: 36rpx; font-weight: 800; display: block; color: #1e293b; margin-bottom: 6rpx; }
 .port-block.IDLE .port-no { color: #166534; }
 .port-block.CHARGING .port-no { color: #92400e; }
 .port-block.RESERVED .port-no { color: #1e40af; }
-.port-block.FAULT .port-no, .port-block.MAINTENANCE .port-no { color: #991b1b; }
+.port-block.FAULT .port-no, .port-block.MAINTENANCE .port-no, .port-block.COMPLETED_WAITING_PICKUP .port-no, .port-block.OVERTIME_OCCUPIED .port-no { color: #991b1b; }
 .port-status-text { font-size: 22rpx; font-weight: 600; display: block; color: inherit; margin-bottom: 4rpx; }
 .port-block.IDLE .port-status-text { color: #22c55e; }
 .port-block.CHARGING .port-status-text { color: #f59e0b; }
 .port-block.RESERVED .port-status-text { color: #3b82f6; }
 .port-block.FAULT .port-status-text { color: #ef4444; }
-.port-block.MAINTENANCE .port-status-text, .port-block.DISABLED .port-status-text, .port-block.OFFLINE .port-status-text { color: #94a3b8; }
+.port-block.MAINTENANCE .port-status-text, .port-block.DISABLED .port-status-text, .port-block.OFFLINE .port-status-text, .port-block.COMPLETED_WAITING_PICKUP .port-status-text, .port-block.OVERTIME_OCCUPIED .port-status-text { color: #94a3b8; }
 
 .legend { display: flex; justify-content: center; gap: 28rpx; padding: 10rpx 0 20rpx; }
 .leg-item { display: flex; align-items: center; gap: 8rpx; font-size: 22rpx; color: #64748b; }
@@ -157,7 +166,6 @@ onLoad(async (options) => {
 .mlbl { font-size: 28rpx; color: #64748b; }
 .mval { font-size: 28rpx; font-weight: 600; color: #1e293b; }
 .mval.IDLE { color: #22c55e; }
-.mval.cost { color: #2563eb; }
 .modal-btns { display: flex; flex-direction: column; gap: 16rpx; margin-top: 32rpx; }
 .btn-reserve { width: 100%; height: 80rpx; background: linear-gradient(135deg, #1e3a8a, #1e40af); color: #fff; border: none; border-radius: 16rpx; font-size: 30rpx; font-weight: 600; }
 .btn-fault { width: 100%; height: 80rpx; background: #fff; color: #ef4444; border: 2rpx solid #fecaca; border-radius: 16rpx; font-size: 30rpx; font-weight: 600; }

@@ -59,7 +59,7 @@
         <text class="quick-arrow">→</text>
       </view>
       <view class="quick-item" @click="goScan">
-        <view class="quick-text"><text class="quick-title">扫码充电</text><text class="quick-sub">扫描端口二维码开始充电</text></view>
+        <view class="quick-text"><text class="quick-title">扫码启动（未开放）</text><text class="quick-sub">请先预约空闲端口，再在「我的预约」中开始充电</text></view>
         <text class="quick-arrow">→</text>
       </view>
     </view>

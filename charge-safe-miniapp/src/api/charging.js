@@ -26,12 +26,18 @@ export function pageMyReservations(params = {}) {
 
 /** 开始充电（凭预约）：POST /api/charging/start?reservationId= */
 export function startCharging(reservationId) {
-  return request({ url: '/api/charging/start', method: 'POST', data: { reservationId } })
+  return request({
+    url: `/api/charging/start?reservationId=${encodeURIComponent(reservationId)}`,
+    method: 'POST'
+  })
 }
 
 /** 无预约直接开始充电：POST /api/charging/start-direct?portId= */
 export function startChargingDirectly(portId) {
-  return request({ url: '/api/charging/start-direct', method: 'POST', data: { portId } })
+  return request({
+    url: `/api/charging/start-direct?portId=${encodeURIComponent(portId)}`,
+    method: 'POST'
+  })
 }
 
 /** 结束充电：POST /api/charging/{orderId}/finish */

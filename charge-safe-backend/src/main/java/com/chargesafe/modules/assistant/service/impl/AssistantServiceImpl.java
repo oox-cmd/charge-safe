@@ -88,7 +88,7 @@ public class AssistantServiceImpl implements AssistantService {
 
             【充电流程】
             1. 预约成功后，在规定时间内到达车棚
-            2. 扫描端口二维码或手动开始充电
+            2. 在「我的预约」页面手动开始充电
             3. 充电完成后手动结束充电
             4. 系统自动计算费用并生成订单
 
@@ -119,13 +119,13 @@ public class AssistantServiceImpl implements AssistantService {
         FAQ_MAP.put("端口状态", "端口状态说明：\n🟢 绿色 - 空闲可预约\n🔵 蓝色 - 已预约\n🟡 黄色 - 充电中\n🔴 红色 - 故障\n⚪ 灰色 - 停用/离线");
         FAQ_MAP.put("状态", "端口状态说明：\n🟢 绿色 - 空闲可预约\n🔵 蓝色 - 已预约\n🟡 黄色 - 充电中\n🔴 红色 - 故障\n⚪ 灰色 - 停用/离线");
         FAQ_MAP.put("订单", "你可以在小程序底部导航栏点击「我的」，然后点击「我的订单」查看充电记录和费用明细。");
-        FAQ_MAP.put("费用", "充电费用根据实际充电时长和电价计算。你可以在订单详情中查看费用明细。");
+        FAQ_MAP.put("费用", "当前费用按实际充电时长计算，最终金额以订单详情中的结算结果为准。");
         FAQ_MAP.put("报修", "你可以在小程序首页点击「故障报修」，或在车棚详情页点击「提交报修」，填写故障描述后提交。");
         FAQ_MAP.put("报修进度", "你可以在「我的报修」页面查看报修记录和处理进度。");
         FAQ_MAP.put("安全", "充电安全注意事项：\n1. 不要使用破损的充电线\n2. 不要在室内充电\n3. 不要长时间无人看管充电\n4. 发现异常立即停止充电并报修\n5. 不要在高温环境下充电");
-        FAQ_MAP.put("开始充电", "预约成功后，在规定时间内到达车棚，扫描端口二维码或在页面点击「开始充电」按钮。");
+        FAQ_MAP.put("开始充电", "预约成功后，在规定时间内打开「我的预约」，点击对应记录的「开始充电」按钮。");
         FAQ_MAP.put("结束充电", "充电完成后，在充电页面点击「结束充电」按钮，系统会自动计算费用并生成订单。");
-        FAQ_MAP.put("扫码", "你可以在车棚详情页扫描端口二维码，快速开始充电。");
+        FAQ_MAP.put("扫码", "扫码启动尚未接入业务流程。请先预约空闲端口，再在「我的预约」页面手动开始充电。");
         FAQ_MAP.put("车棚", "你可以在首页点击「充电车棚」查看附近的车棚和可用端口。");
         FAQ_MAP.put("密码", "如需修改密码，请联系管理员。");
         FAQ_MAP.put("登录", "如遇登录问题，请检查账号密码是否正确，或联系管理员重置密码。");
@@ -140,9 +140,15 @@ public class AssistantServiceImpl implements AssistantService {
         // 1. 优先尝试调用大模型
         if (assistantEnabled && apiKey != null && !apiKey.isEmpty()) {
             try {
-                return callLlm(userId, question, pageContext);
+                AssistantChatResponse response = callLlm(userId, question, pageContext);
+                saveQaRecord(userId, question, response.getAnswer(), pageContext, response.getSourceType());
+                return response;
             } catch (Exception e) {
                 log.warn("大模型调用失败，使用 FAQ 兜底: {}", e.getMessage());
+                AssistantChatResponse response = getFaqAnswer(question);
+                response.setSourceType("FALLBACK");
+                saveQaRecord(userId, question, response.getAnswer(), pageContext, response.getSourceType());
+                return response;
             }
         }
 
@@ -189,9 +195,11 @@ public class AssistantServiceImpl implements AssistantService {
                 log.error("流式输出失败", e);
                 try {
                     AssistantChatResponse fallback = getFaqAnswer(question);
+                    fallback.setSourceType("FALLBACK");
                     emitter.send(SseEmitter.event().name("message").data(fallback));
                     emitter.send(SseEmitter.event().name("done").data(""));
                     emitter.complete();
+                    saveQaRecord(userId, question, fallback.getAnswer(), pageContext, fallback.getSourceType());
                 } catch (Exception ex) {
                     emitter.completeWithError(ex);
                 }
@@ -465,8 +473,8 @@ public class AssistantServiceImpl implements AssistantService {
         // 本月问答数
         Long monthCount = aiQaRecordMapper.countMonth();
 
-        // 总问答数
-        Long totalCount = todayCount + weekCount + monthCount;
+        // 总问答数（不能将相互重叠的时间窗口相加）
+        Long totalCount = aiQaRecordMapper.selectCount(null);
 
         // 来源分布
         Map<String, Long> sourceDistribution = new HashMap<>();

@@ -36,7 +36,9 @@ onMounted(async () => {
   } catch { /* 错误由 request.js 统一 toast */ }
 })
 
-const goDetail = (item) => uni.navigateTo({ url: `/pages/parking/detail?id=${item.id}&name=${item.name}` })
+const goDetail = (item) => uni.navigateTo({
+  url: `/pages/parking/detail?id=${item.id}&name=${encodeURIComponent(item.name)}&location=${encodeURIComponent(item.location)}`
+})
 </script>
 
 <style scoped>

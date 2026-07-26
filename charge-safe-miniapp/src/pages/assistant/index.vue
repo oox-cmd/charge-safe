@@ -40,6 +40,9 @@
         </view>
         <view class="message-content">
           <view class="message-text">{{ msg.content }}</view>
+          <view v-if="msg.role === 'assistant' && msg.sourceType" class="source-label">
+            {{ sourceLabel(msg.sourceType) }}
+          </view>
           <view v-if="msg.role === 'assistant' && msg.loading" class="loading-indicator">
             <text class="loading-dot">.</text>
             <text class="loading-dot">.</text>
@@ -133,6 +136,7 @@ export default {
 
       try {
         const res = await chatWithAssistant(question, this.getPageContext())
+        const data = res.data
 
         // 移除加载状态的消息
         this.messages.pop()
@@ -140,12 +144,13 @@ export default {
         // 添加 AI 回复
         this.messages.push({
           role: 'assistant',
-          content: res.answer
+          content: data.answer,
+          sourceType: data.sourceType
         })
 
         // 更新推荐操作
-        if (res.suggestions && res.suggestions.length > 0) {
-          this.suggestions = res.suggestions
+        if (data.suggestions && data.suggestions.length > 0) {
+          this.suggestions = data.suggestions
         }
       } catch (error) {
         // 移除加载状态的消息
@@ -202,6 +207,14 @@ export default {
         return currentPage.route || ''
       }
       return ''
+    },
+
+    sourceLabel(sourceType) {
+      return {
+        LLM: '大模型回答',
+        FAQ: '常见问题回答',
+        FALLBACK: '常见问题降级回答'
+      }[sourceType] || ''
     },
 
     // 滚动到底部
@@ -319,6 +332,12 @@ export default {
   line-height: 1.6;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
   white-space: pre-wrap;
+}
+
+.source-label {
+  margin: 8rpx 25rpx 0;
+  font-size: 20rpx;
+  color: #94a3b8;
 }
 
 .user-message .message-text {
