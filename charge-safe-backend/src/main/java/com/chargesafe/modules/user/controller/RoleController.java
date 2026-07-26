@@ -25,12 +25,14 @@ public class RoleController {
     private final RoleService roleService;
 
     @Operation(summary = "分页查询角色")
+    @RequiresPermission("system:role:view")
     @GetMapping
     public Result<PageResult<RoleVO>> pageList(RoleQueryDTO query, PageQuery pageQuery) {
         return Result.success(roleService.pageList(query, pageQuery));
     }
 
     @Operation(summary = "查询启用角色")
+    @RequiresPermission("system:role:view")
     @GetMapping("/list")
     public Result<List<RoleVO>> listEnabled() {
         return Result.success(roleService.listEnabled());

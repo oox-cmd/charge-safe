@@ -24,12 +24,14 @@ public class MenuController {
     private final MenuService menuService;
 
     @Operation(summary = "查询菜单树")
+    @RequiresPermission("system:menu:view")
     @GetMapping
     public Result<List<MenuVO>> listTree(@RequestParam(required = false, defaultValue = "false") Boolean onlyEnabled) {
         return Result.success(menuService.listTree(onlyEnabled));
     }
 
     @Operation(summary = "查询菜单树")
+    @RequiresPermission("system:menu:view")
     @GetMapping("/tree")
     public Result<List<MenuVO>> tree(@RequestParam(required = false, defaultValue = "false") Boolean onlyEnabled) {
         return Result.success(menuService.listTree(onlyEnabled));

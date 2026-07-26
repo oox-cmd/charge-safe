@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:unit": "node --test tests/scene-data.test.mjs",
+    "test:unit": "node --test tests/scene-data.test.mjs tests/permission-management-contract.test.mjs",
     "test:browser": "node --test tests/browser-regression.test.mjs",
     "preview": "vite preview"
   },

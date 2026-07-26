@@ -7,6 +7,7 @@ import com.chargesafe.common.OperationLogMapper;
 import com.chargesafe.common.PageQuery;
 import com.chargesafe.common.PageResult;
 import com.chargesafe.common.Result;
+import com.chargesafe.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class LogController {
     private final OperationLogMapper logMapper;
 
     @Operation(summary = "分页查询操作日志")
+    @RequiresPermission("operation-log:view")
     @GetMapping
     public Result<PageResult<OperationLogEntity>> pageList(
             @RequestParam(required = false) String username,
@@ -41,6 +43,7 @@ public class LogController {
     }
 
     @Operation(summary = "根据ID查询日志详情")
+    @RequiresPermission("operation-log:view")
     @GetMapping("/{id}")
     public Result<OperationLogEntity> getById(@PathVariable Long id) {
         OperationLogEntity log = logMapper.selectById(id);

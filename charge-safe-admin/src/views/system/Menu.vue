@@ -36,14 +36,14 @@
         <el-table-column prop="menuName" label="菜单名称" min-width="200" />
         <el-table-column prop="menuType" label="类型" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.menuType === 'DIRECTORY'" type="primary">目录</el-tag>
-            <el-tag v-else-if="row.menuType === 'MENU'" type="success">菜单</el-tag>
-            <el-tag v-else-if="row.menuType === 'BUTTON'" type="warning">按钮</el-tag>
+            <el-tag v-if="row.menuType === 1" type="primary">目录</el-tag>
+            <el-tag v-else-if="row.menuType === 2" type="success">菜单</el-tag>
+            <el-tag v-else-if="row.menuType === 3" type="warning">按钮</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="path" label="路径" width="180" />
         <el-table-column prop="component" label="组件" width="180" />
-        <el-table-column prop="permission" label="权限标识" width="180" />
+        <el-table-column prop="permissionCode" label="权限标识" width="180" />
         <el-table-column prop="sortOrder" label="排序" width="90" align="center" />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
@@ -86,22 +86,22 @@
         </el-form-item>
         <el-form-item label="菜单类型" prop="menuType">
           <el-radio-group v-model="form.menuType">
-            <el-radio value="DIRECTORY">目录</el-radio>
-            <el-radio value="MENU">菜单</el-radio>
-            <el-radio value="BUTTON">按钮</el-radio>
+            <el-radio :value="1">目录</el-radio>
+            <el-radio :value="2">菜单</el-radio>
+            <el-radio :value="3">按钮</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="菜单名称" prop="menuName">
           <el-input v-model="form.menuName" placeholder="请输入菜单名称" />
         </el-form-item>
-        <el-form-item v-if="form.menuType !== 'BUTTON'" label="路由路径" prop="path">
+        <el-form-item v-if="form.menuType !== 3" label="路由路径" prop="path">
           <el-input v-model="form.path" placeholder="请输入路由路径" />
         </el-form-item>
-        <el-form-item v-if="form.menuType === 'MENU'" label="组件路径" prop="component">
+        <el-form-item v-if="form.menuType === 2" label="组件路径" prop="component">
           <el-input v-model="form.component" placeholder="请输入组件路径" />
         </el-form-item>
-        <el-form-item v-if="form.menuType === 'BUTTON'" label="权限标识" prop="permission">
-          <el-input v-model="form.permission" placeholder="如 system:user:create" />
+        <el-form-item v-if="form.menuType === 3" label="权限标识" prop="permissionCode">
+          <el-input v-model="form.permissionCode" placeholder="如 system:user:create" />
         </el-form-item>
         <el-form-item label="排序" prop="sortOrder">
           <el-input-number v-model="form.sortOrder" :min="0" :max="9999" style="width: 100%" />
@@ -146,11 +146,11 @@ const queryParams = reactive({
 const form = reactive({
   id: null,
   parentId: 0,
-  menuType: 'MENU',
+  menuType: 2,
   menuName: '',
   path: '',
   component: '',
-  permission: '',
+  permissionCode: '',
   sortOrder: 0,
   status: 1
 })
@@ -220,11 +220,11 @@ const handleAdd = () => {
   dialogTitle.value = '新增菜单'
   form.id = null
   form.parentId = 0
-  form.menuType = 'MENU'
+  form.menuType = 2
   form.menuName = ''
   form.path = ''
   form.component = ''
-  form.permission = ''
+  form.permissionCode = ''
   form.sortOrder = 0
   form.status = 1
   fetchMenuTreeOptions()
@@ -235,11 +235,11 @@ const handleAddChild = (row) => {
   dialogTitle.value = '新增子菜单'
   form.id = null
   form.parentId = row.id
-  form.menuType = row.menuType === 'DIRECTORY' ? 'MENU' : 'BUTTON'
+  form.menuType = row.menuType === 1 ? 2 : 3
   form.menuName = ''
   form.path = ''
   form.component = ''
-  form.permission = ''
+  form.permissionCode = ''
   form.sortOrder = 0
   form.status = 1
   fetchMenuTreeOptions()
@@ -254,7 +254,7 @@ const handleEdit = (row) => {
   form.menuName = row.menuName
   form.path = row.path
   form.component = row.component
-  form.permission = row.permission
+  form.permissionCode = row.permissionCode
   form.sortOrder = row.sortOrder
   form.status = row.status
   fetchMenuTreeOptions()

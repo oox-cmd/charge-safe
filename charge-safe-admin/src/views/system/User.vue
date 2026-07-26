@@ -18,12 +18,8 @@
         </el-select>
       </el-form-item>
       <el-form-item label="角色">
-        <el-select v-model="queryParams.roleCode" placeholder="全部" clearable style="width: 180px">
-          <el-option label="平台管理员" value="PLATFORM_ADMIN" />
-          <el-option label="物业管理员" value="PROPERTY_ADMIN" />
-          <el-option label="维修人员" value="MAINTAINER" />
-          <el-option label="巡检人员" value="INSPECTOR" />
-          <el-option label="居民" value="RESIDENT" />
+        <el-select v-model="queryParams.roleId" placeholder="全部" clearable style="width: 180px">
+          <el-option v-for="item in roleList" :key="item.id" :label="item.roleName" :value="item.id" />
         </el-select>
       </el-form-item>
     </CsSearchPanel>
@@ -40,9 +36,10 @@
         <el-table-column prop="username" label="用户名" width="130" />
         <el-table-column prop="nickname" label="昵称" width="130" />
         <el-table-column prop="phone" label="手机号" width="140" />
-        <el-table-column prop="roleName" label="角色" width="130">
+        <el-table-column prop="roleNames" label="角色" width="180">
           <template #default="{ row }">
-            <el-tag>{{ row.roleName || row.roleCode }}</el-tag>
+            <el-tag v-if="row.roleNames?.length">{{ row.roleNames.join('、') }}</el-tag>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="communityName" label="所属社区" show-overflow-tooltip />
@@ -190,7 +187,7 @@ const queryParams = reactive({
   username: '',
   phone: '',
   status: null,
-  roleCode: ''
+  roleId: null
 })
 
 const form = reactive({
@@ -260,7 +257,7 @@ const resetQuery = () => {
   queryParams.username = ''
   queryParams.phone = ''
   queryParams.status = null
-  queryParams.roleCode = ''
+  queryParams.roleId = null
   queryParams.page = 1
   fetchData()
 }
